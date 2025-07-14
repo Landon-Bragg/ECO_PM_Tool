@@ -1,0 +1,13 @@
+# Node.js
+node_modules/
+.next/
+out/
+
+# Python
+__pycache__/
+.venv/
+*.py[cod]
+
+# Misc
+.vscode/
+.DS_Store
