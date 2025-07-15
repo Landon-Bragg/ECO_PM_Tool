@@ -628,10 +628,10 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     fig.update_layout(
         title=dict(
             text=f"ECO {eco_number} Hierarchical Flow Analysis",
-            font=dict(size=18, family='Arial'),
+            font=dict(size=18, family='Arial', color='white'),
             x=0.378
         ),
-        font=dict(size=12, family='Arial'),
+        font=dict(color='white', size=12, family='Arial'),
         margin=dict(l=50, r=50, t=120, b=50),
         plot_bgcolor='white',
         paper_bgcolor='white',
