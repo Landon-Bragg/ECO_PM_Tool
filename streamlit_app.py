@@ -23,89 +23,40 @@ pio.templates.default = "plotly_white"
 
 # ───────────────── STYLING ───────────────────────────────
 def load_custom_css():
-    st.markdown("""
-    <style>
-    /* Main container styling */
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 1200px;
-    }
-    
-    /* Header styling */
-    .main-header {
-        text-align: center;
-        padding: 1.5rem 0;
-        margin-bottom: 2rem;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        border-radius: 12px;
-        color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Card styling */
-    .metric-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #667eea;
-        margin-bottom: 1rem;
-    }
-    
-    /* Clean button styling */
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    /* File uploader styling */
-    .uploadedFile {
-        background: #f8f9fa;
-        border: 2px dashed #667eea;
-        border-radius: 8px;
-        padding: 1rem;
-        text-align: center;
-    }
-    
-    /* Success/Error message styling */
-    .stSuccess, .stError, .stInfo, .stWarning {
-        border-radius: 8px;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: #f8f9fa;
-    }
-    
-    /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    /* Clean metrics */
-    [data-testid="metric-container"] {
-        background: white;
-        border: 1px solid #e9ecef;
-        padding: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    """Load custom CSS for clean, minimalist design"""
+    st.markdown(
+        """
+        <style>
+        /* Main container styling */
+        .main .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            max-width: 1200px;
+        }
+
+        /* Header styling */
+        .main-header {
+            text-align: center;
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* …all your other CSS rules… */
+
+        /* Hide Streamlit branding */
+        #MainMenu { visibility: hidden; }
+        footer     { visibility: hidden; }
+        header     { visibility: hidden; }
+
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
 
 # ───────────────── CORE FUNCTIONS ───────────────────────────────
 
