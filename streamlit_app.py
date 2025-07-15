@@ -23,7 +23,6 @@ pio.templates.default = "plotly_white"
 
 # ───────────────── STYLING ───────────────────────────────
 def load_custom_css():
-    """Load custom CSS for clean, minimalist design"""
     st.markdown("""
     <style>
     /* Main container styling */
@@ -112,7 +111,6 @@ def load_custom_css():
 
 @st.cache_data
 def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
-    """Load and validate Excel data with minimal logging"""
     try:
         df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
         
@@ -140,7 +138,6 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
         return None
 
 def parse_delimited_field(field_value: str) -> List[str]:
-    """Parse comma-delimited field and return cleaned values"""
     if pd.isna(field_value) or field_value == '' or str(field_value).upper() == 'NAN':
         return []
     
@@ -150,13 +147,11 @@ def parse_delimited_field(field_value: str) -> List[str]:
     return items
 
 def get_available_ecos(df: pd.DataFrame) -> List[str]:
-    """Get sorted list of unique ECO numbers"""
     unique_ecos = df['Change_Order'].unique()
     unique_ecos = [eco for eco in unique_ecos if pd.notna(eco) and str(eco).upper() != 'NAN']
     return sorted(unique_ecos)
 
 def extract_all_items_and_ancestors(filtered_df: pd.DataFrame) -> Tuple[Set[str], Dict[str, Dict]]:
-    """Extract all affected items and ancestors with relationships"""
     all_items = set()
     item_relationships = {}
     
@@ -193,7 +188,6 @@ def extract_all_items_and_ancestors(filtered_df: pd.DataFrame) -> Tuple[Set[str]
     return all_items, item_relationships
 
 def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
-    """Filter DataFrame for specific ECO number"""
     filtered_df = df[df['Change_Order'] == eco_number].copy()
     
     if len(filtered_df) > 0:
@@ -212,20 +206,6 @@ def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
     return filtered_df
 
 def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -> Dict:
-    """
-    Build Sankey diagram data with strict hierarchical structure and flow termination:
-    Level 1: ECO Number
-    Level 2: Items (Affected Items + Ancestors)
-    Level 3: Customers (only if they exist for the item)
-    Level 4: PMs (only if they exist for the customer)
-    
-    Args:
-        filtered_df: DataFrame filtered for specific ECO
-        eco_number: ECO number for the diagram
-        
-    Returns:
-        Dictionary containing hierarchical Sankey data with flow termination
-    """
     
     # Get the stored relationships
     item_relationships = filtered_df.attrs.get('item_relationships', {})
@@ -348,7 +328,6 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     customers_terminating_at_level_3 = len([customer for customer in level_3_nodes 
                                           if not any(customer_pm_link_counts.get(customer, {}).values())])
     
-    st.success(f"✅ Generated {len(links)} hierarchical links with flow termination:")
     link_summary = defaultdict(int)
     for link in links:
         link_summary[link['level']] += 1
@@ -373,16 +352,7 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     }
 
 def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.Figure:
-    """
-    Create Plotly Sankey figure with strict hierarchical coloring, positioning, and flow termination.
-    
-    Args:
-        sankey_data: Dictionary containing hierarchical Sankey data
-        eco_number: ECO number for the diagram title
-        
-    Returns:
-        Plotly Figure object with hierarchical structure and flow termination
-    """
+
     labels = sankey_data['labels']
     source = sankey_data['source']
     target = sankey_data['target']
@@ -515,7 +485,6 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
 # ───────────────── MAIN APPLICATION ───────────────────────────────
 
 def main():
-    """Main Streamlit application with clean, minimalist design"""
     st.set_page_config(
         page_title='ECO Flow Analyzer',
         page_icon='📊',
@@ -612,10 +581,10 @@ def main():
     with col2:
         with st.expander(f"📝 Available ECOs ({len(available_ecos)})"):
             # Show first 10 ECOs
-            for eco in available_ecos[:10]:
+            for eco in available_ecos[:4]:
                 st.text(eco)
-            if len(available_ecos) > 10:
-                st.text(f"... and {len(available_ecos) - 10} more")
+            if len(available_ecos) > 4:
+                st.text(f"... and {len(available_ecos) - 4} more")
     
     # Generate analysis
     if st.button("🚀 Generate Flow Analysis"):
