@@ -6,7 +6,102 @@ import re
 from typing import Optional, Dict, List, Tuple, Set
 from collections import defaultdict
 
-# ───────────────── CONFIG ───────────────────────────────
+# ───────────────── CONFIG & STYLING ───────────────────────────────
+st.set_page_config(
+    page_title='ECO Flow Analyzer',
+    page_icon='📊',
+    layout='wide',
+    initial_sidebar_state='expanded'
+)
+
+# Custom CSS for a cleaner, more modern look
+st.markdown("""
+<style>
+    /* Main container styling */
+    .main > div {
+        padding-top: 2rem;
+    }
+    
+    /* Header styling */
+    .main-header {
+        background: linear-gradient(90deg, #1f77b4 0%, #2ca02c 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        color: white;
+        text-align: center;
+    }
+    
+    /* Card-like containers */
+    .stContainer > div {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    
+    /* Metrics styling */
+    .metric-container {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #1f77b4;
+        margin: 0.5rem 0;
+    }
+    
+    /* Success/Error message styling */
+    .stSuccess {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .stError {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    /* File uploader styling */
+    .uploadedFile {
+        background-color: #e8f5e8;
+        border: 2px dashed #28a745;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(90deg, #1f77b4 0%, #2ca02c 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #f8f9fa;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
 REQUIRED_COLUMNS = ["ECO #", "Affected Item", "Customers", "PMs"]
 OPTIONAL_COLUMNS = ["Days Open", "Ancestors"]
 ALL_EXPECTED_COLUMNS = REQUIRED_COLUMNS + OPTIONAL_COLUMNS
@@ -19,10 +114,24 @@ HIERARCHY_LEVELS = {
     4: "PMs"           # Layer 4: Project Managers (only if they exist)
 }
 
-# Optional: ensure consistent Plotly theme
+# Plotly theme
 pio.templates.default = "plotly_white"
 
 # ───────────────────────────────────────────────────────
+
+def display_header():
+    """Display the main application header with modern styling."""
+    st.markdown("""
+    <div class="main-header">
+        <h1>📊 ECO Flow Analyzer</h1>
+        <p style="margin: 0; font-size: 1.1rem; opacity: 0.9;">
+            Engineering Change Order Visualization Dashboard
+        </p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+            Structure: ECO → Items (Affected + Ancestors) → Customers → Project Managers
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 def get_sheet_names(uploaded_file) -> List[str]:
     """Get all sheet names from the Excel file."""
@@ -51,9 +160,6 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
         
         st.success(f"✅ Initial data loaded: {df.shape[0]} rows, {df.shape[1]} columns")
         
-        # Display available columns
-        available_columns = list(df.columns)
-        
         # Check if required columns exist
         missing_required = [col for col in REQUIRED_COLUMNS if col not in df.columns]
         if missing_required:
@@ -63,10 +169,6 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
                 status = "✅" if col in df.columns else "❌"
                 st.write(f"  {status} {col}")
             return None
-        
-        # Check for optional columns
-        available_optional = [col for col in OPTIONAL_COLUMNS if col in df.columns]
-        missing_optional = [col for col in OPTIONAL_COLUMNS if col not in df.columns]
         
         # Analyze ECO # column before any filtering
         original_count = len(df)
@@ -78,7 +180,6 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
         nan_string_count = (eco_col.astype(str).str.upper() == 'NAN').sum()
         valid_count = original_count - null_count - empty_string_count - nan_string_count
         
-
         df_clean = df.copy()
         
         # Remove null ECO #
@@ -87,14 +188,11 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
         
         # Remove empty string ECO #
         mask_not_empty = df_clean['ECO #'].astype(str).str.strip() != ''
-        empty_removed = len(df_clean) - mask_not_empty.sum()
         df_clean = df_clean[mask_not_empty]
         
         # Remove 'nan' string ECO #
         mask_not_nan = df_clean['ECO #'].astype(str).str.upper() != 'NAN'
-        nan_removed = len(df_clean) - mask_not_nan.sum()
         df_clean = df_clean[mask_not_nan]
-
         
         # Clean and standardize ECO # column
         df_clean['ECO #'] = df_clean['ECO #'].astype(str).str.strip()
@@ -104,15 +202,9 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
         df_clean['Affected_PN'] = df_clean['Affected Item']
         
         final_count = len(df_clean)
-        removed_count = original_count - final_count
-    
         
         # Show sample of unique ECO numbers
         unique_ecos = sorted(df_clean['Change_Order'].unique())
-        
-        # Display first 10 ECO numbers as examples
-        sample_ecos = unique_ecos[:10]
-
         
         return df_clean
         
@@ -125,12 +217,6 @@ def parse_delimited_field(field_value: str) -> List[str]:
     """
     Parse comma-delimited field and return list of cleaned values.
     Handles missing values, empty strings, and #N/A entries.
-    
-    Args:
-        field_value: String containing comma-separated values
-        
-    Returns:
-        List of cleaned, non-empty strings
     """
     if pd.isna(field_value) or field_value == '' or str(field_value).upper() == 'NAN':
         return []
@@ -143,15 +229,7 @@ def parse_delimited_field(field_value: str) -> List[str]:
     return items
 
 def get_available_ecos(df: pd.DataFrame) -> List[str]:
-    """
-    Get sorted list of unique ECO numbers from the dataset.
-    
-    Args:
-        df: DataFrame containing ECO data
-        
-    Returns:
-        Sorted list of unique ECO numbers
-    """
+    """Get sorted list of unique ECO numbers from the dataset."""
     unique_ecos = df['Change_Order'].unique()
     # Remove any NaN values and sort
     unique_ecos = [eco for eco in unique_ecos if pd.notna(eco) and str(eco).upper() != 'NAN']
@@ -161,12 +239,6 @@ def extract_all_items_and_ancestors(filtered_df: pd.DataFrame) -> Tuple[Set[str]
     """
     Extract all affected items and ancestors, combining them into a single items set.
     Also track which items have customers and PMs for flow termination logic.
-    
-    Args:
-        filtered_df: DataFrame filtered for specific ECO
-        
-    Returns:
-        Tuple of (all_items_set, item_relationships_dict)
     """
     all_items = set()
     item_relationships = {} # Stores {item: {'customers': set(), 'pms': set()}}
@@ -204,16 +276,7 @@ def extract_all_items_and_ancestors(filtered_df: pd.DataFrame) -> Tuple[Set[str]
     return all_items, item_relationships
 
 def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
-    """
-    Filter DataFrame to only include rows for the specified ECO number.
-    
-    Args:
-        df: Full DataFrame
-        eco_number: ECO number to filter by
-        
-    Returns:
-        Filtered DataFrame containing only rows for the specified ECO
-    """
+    """Filter DataFrame to only include rows for the specified ECO number."""
     st.info(f"🔍 Filtering data for ECO: '{eco_number}'")
     
     # Filter for exact match (case-sensitive)
@@ -232,38 +295,10 @@ def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
         # Extract all items (affected items + ancestors)
         all_items, item_relationships = extract_all_items_and_ancestors(filtered_df)
         
-        # Show summary of parsed data
-        total_customers = sum(len(cust_list) for cust_list in filtered_df['CustList'])
-        total_pms = sum(len(pm_list) for pm_list in filtered_df['PMList'])
-        
-        # Count items with and without customers/PMs
-        items_with_customers = sum(1 for item_data in item_relationships.values() if item_data['customers'])
-        items_without_customers = len(all_items) - items_with_customers
-        
-        customers_with_pms = 0
-        customers_without_pms = 0
-        all_customers_in_relationships = set()
-        for item_data in item_relationships.values():
-            all_customers_in_relationships.update(item_data['customers'])
-        
-        for customer in all_customers_in_relationships:
-            # Check if this customer is associated with any PM through any item
-            has_pm = False
-            for item_data in item_relationships.values():
-                if customer in item_data['customers'] and item_data['pms']:
-                    has_pm = True
-                    break
-            if has_pm:
-                customers_with_pms += 1
-            else:
-                customers_without_pms += 1
-        
         # Store the relationships for later use
         filtered_df.attrs['item_relationships'] = item_relationships
         filtered_df.attrs['all_items'] = all_items
         
-        # Show sample of filtered data for verification
-
     else:
         # Show available ECOs for debugging
         all_ecos = sorted(df['Change_Order'].unique())
@@ -273,16 +308,7 @@ def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
     return filtered_df
 
 def validate_hierarchical_data(filtered_df: pd.DataFrame, eco_number: str) -> Tuple[bool, str, Dict]:
-    """
-    Validate that the filtered ECO data has all required hierarchical levels.
-    
-    Args:
-        filtered_df: DataFrame filtered for specific ECO
-        eco_number: ECO number being validated
-        
-    Returns:
-        Tuple of (is_valid, error_message, validation_summary)
-    """
+    """Validate that the filtered ECO data has all required hierarchical levels."""
     validation_summary = {
         'eco_count': 1 if not filtered_df.empty else 0,
         'total_items': 0,
@@ -340,24 +366,10 @@ def validate_hierarchical_data(filtered_df: pd.DataFrame, eco_number: str) -> Tu
         all_pms.update(item_data['pms'])
     validation_summary['pms'] = len(all_pms)
     
-    # The structure is valid as long as we have items
     return True, "", validation_summary
 
 def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -> Dict:
-    """
-    Build Sankey diagram data with strict hierarchical structure and flow termination:
-    Level 1: ECO Number
-    Level 2: Items (Affected Items + Ancestors)
-    Level 3: Customers (only if they exist for the item)
-    Level 4: PMs (only if they exist for the customer)
-    
-    Args:
-        filtered_df: DataFrame filtered for specific ECO
-        eco_number: ECO number for the diagram
-        
-    Returns:
-        Dictionary containing hierarchical Sankey data with flow termination
-    """
+    """Build Sankey diagram data with strict hierarchical structure and flow termination."""
     
     # Get the stored relationships
     item_relationships = filtered_df.attrs.get('item_relationships', {})
@@ -381,8 +393,6 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
         level_4_nodes.update(item_data['pms'])
     level_4_nodes = sorted(list(level_4_nodes))
     
-
-    
     # Build complete node list maintaining hierarchy
     all_nodes = level_1_nodes + level_2_nodes + level_3_nodes + level_4_nodes
     node_to_index = {node: i for i, node in enumerate(all_nodes)}
@@ -391,7 +401,6 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     links = []
     
     # LINKS: Level 1 (ECO) → Level 2 (Items)
-    # Count occurrences of each item (affected or ancestor) across all rows for the given ECO
     item_counts_from_eco = defaultdict(int)
     
     for _, row in filtered_df.iterrows():
@@ -418,7 +427,6 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
             })
     
     # LINKS: Level 2 (Items) → Level 3 (Customers)
-    # Only create links for items that have customers
     item_customer_link_counts = defaultdict(lambda: defaultdict(int))
     
     for _, row in filtered_df.iterrows():
@@ -437,9 +445,9 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
                 item_customer_link_counts[item][customer] += 1
     
     for item, customer_counts in item_customer_link_counts.items():
-        if item in node_to_index: # Ensure item is a valid node
+        if item in node_to_index:
             for customer, count in customer_counts.items():
-                if customer in node_to_index: # Ensure customer is a valid node
+                if customer in node_to_index:
                     links.append({
                         'source': node_to_index[item],
                         'target': node_to_index[customer],
@@ -449,7 +457,6 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
                     })
     
     # LINKS: Level 3 (Customers) → Level 4 (PMs)
-    # Only create links for customers that have PMs
     customer_pm_link_counts = defaultdict(lambda: defaultdict(int))
     
     for _, row in filtered_df.iterrows():
@@ -461,9 +468,9 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
                 customer_pm_link_counts[customer][pm] += 1
     
     for customer, pm_counts in customer_pm_link_counts.items():
-        if customer in node_to_index: # Ensure customer is a valid node
+        if customer in node_to_index:
             for pm, count in pm_counts.items():
-                if pm in node_to_index: # Ensure PM is a valid node
+                if pm in node_to_index:
                     links.append({
                         'source': node_to_index[customer],
                         'target': node_to_index[pm],
@@ -482,12 +489,8 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     customers_terminating_at_level_3 = len([customer for customer in level_3_nodes 
                                           if not any(customer_pm_link_counts.get(customer, {}).values())])
     
-    st.success(f"✅ Generated {len(links)} hierarchical links with flow termination:")
-    link_summary = defaultdict(int)
-    for link in links:
-        link_summary[link['level']] += 1
+    st.success(f"✅ Generated {len(links)} hierarchical links with flow termination")
     
-
     return {
         'labels': all_nodes,
         'source': source_indices,
@@ -500,7 +503,7 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
             4: level_4_nodes
         },
         'hierarchy': HIERARCHY_LEVELS,
-        'item_relationships': item_relationships, # Keep for detailed breakdown
+        'item_relationships': item_relationships,
         'flow_termination': {
             'items_at_level_2': items_terminating_at_level_2,
             'customers_at_level_3': customers_terminating_at_level_3
@@ -508,16 +511,7 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     }
 
 def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.Figure:
-    """
-    Create Plotly Sankey figure with strict hierarchical coloring, positioning, and flow termination.
-    
-    Args:
-        sankey_data: Dictionary containing hierarchical Sankey data
-        eco_number: ECO number for the diagram title
-        
-    Returns:
-        Plotly Figure object with hierarchical structure and flow termination
-    """
+    """Create Plotly Sankey figure with strict hierarchical coloring, positioning, and flow termination."""
     labels = sankey_data['labels']
     source = sankey_data['source']
     target = sankey_data['target']
@@ -543,21 +537,20 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
                 break
         
         if not color_assigned:
-            node_colors.append('#808080')  # Gray for unassigned nodes (shouldn't happen with correct logic)
+            node_colors.append('#808080')
     
     # Create link colors with transparency based on value
     if value:
         max_value = max(value) if value else 1
         link_colors = []
         for v in value:
-            # Use blue-based transparency for all links
-            alpha = 0.3 + 0.5 * (v / max_value)  # Alpha between 0.3 and 0.8
+            alpha = 0.3 + 0.5 * (v / max_value)
             link_colors.append(f'rgba(31, 119, 180, {alpha})')
     else:
         link_colors = []
     
     # Calculate node positions for better hierarchy visualization
-    x_positions = [0.05, 0.35, 0.65, 0.95]  # Fixed x positions for each level
+    x_positions = [0.05, 0.35, 0.65, 0.95]
     y_positions = {}
     
     for level, nodes in levels.items():
@@ -566,7 +559,6 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
             if len(nodes) == 1:
                 level_y_positions = [0.5]
             else:
-                # Distribute nodes evenly in y-axis for each level
                 for i in range(len(nodes)):
                     y_pos = 0.1 + (0.8 * i / (len(nodes) - 1))
                     level_y_positions.append(y_pos)
@@ -582,13 +574,13 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
         level_found = False
         for level, nodes in levels.items():
             if label in nodes:
-                node_x.append(x_positions[level - 1])  # level-1 because levels start at 1
-                node_y.append(y_positions.get(label, 0.5)) # Use .get with default for safety
+                node_x.append(x_positions[level - 1])
+                node_y.append(y_positions.get(label, 0.5))
                 level_found = True
                 break
         
         if not level_found:
-            node_x.append(0.5)  # Default position if not found in any level (shouldn't happen)
+            node_x.append(0.5)
             node_y.append(0.5)
     
     # Create custom hover data for nodes
@@ -603,7 +595,7 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     
     # Create the Sankey diagram
     fig = go.Figure(go.Sankey(
-        arrangement='fixed',  # Use fixed arrangement to maintain hierarchy
+        arrangement='fixed',
         node=dict(
             label=labels,
             color=node_colors,
@@ -628,16 +620,15 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     fig.update_layout(
         title=dict(
             text=f"ECO {eco_number} Hierarchical Flow Analysis",
-            font=dict(size=18, family='Arial', color='white'),
-            x=0.378
+            font=dict(size=20, family='Arial, sans-serif'),
+            x=0.5
         ),
-        font=dict(color='white', size=12, family='Arial'),
+        font=dict(size=12, family='Arial, sans-serif'),
         margin=dict(l=50, r=50, t=120, b=50),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        height=800,
+        height=700,
         annotations=[
-            # Level annotations
             dict(x=0.05, y=1.08, text="<b>ECO</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[1])),
             dict(x=0.35, y=1.08, text="<b>Items</b><br><sub>(Affected + Ancestors)</sub>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[2])),
             dict(x=0.65, y=1.08, text="<b>Customers</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[3])),
@@ -647,47 +638,56 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     
     return fig
 
-def display_hierarchical_summary(df: pd.DataFrame, filtered_df: pd.DataFrame, eco_number: str, validation_summary: Dict):
-    """
-    Display summary statistics about the hierarchical data structure with flow termination info.
-    
-    Args:
-        df: Full DataFrame
-        filtered_df: Filtered DataFrame for specific ECO
-        eco_number: ECO number being analyzed
-        validation_summary: Summary of data validation
-    """
+def display_metrics_dashboard(validation_summary: Dict):
+    """Display key metrics in a clean dashboard format."""
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Total ECOs", len(df['Change_Order'].unique()))
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="margin: 0; color: #1f77b4;">📊 Total Items</h3>
+            <h2 style="margin: 0.5rem 0 0 0;">{validation_summary['total_items']}</h2>
+            <p style="margin: 0; font-size: 0.9rem; color: #666;">Affected Items + Ancestors</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
-        st.metric("Total Items", validation_summary['total_items'])
-        st.caption(f"Affected Items + Ancestors")
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="margin: 0; color: #2ca02c;">👥 Customers</h3>
+            <h2 style="margin: 0.5rem 0 0 0;">{validation_summary['customers']}</h2>
+            <p style="margin: 0; font-size: 0.9rem; color: #666;">{validation_summary['customers_without_pms']} terminate at Level 3</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
-        st.metric("Customers", validation_summary['customers'])
-        st.caption(f"{validation_summary['customers_without_pms']} terminate at Level 3")
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="margin: 0; color: #d62728;">🎯 Project Managers</h3>
+            <h2 style="margin: 0.5rem 0 0 0;">{validation_summary['pms']}</h2>
+            <p style="margin: 0; font-size: 0.9rem; color: #666;">Final level destinations</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col4:
-        st.metric("Project Managers", validation_summary['pms'])
+        flow_efficiency = round((validation_summary['customers_with_pms'] / max(validation_summary['customers'], 1)) * 100, 1)
+        st.markdown(f"""
+        <div class="metric-container">
+            <h3 style="margin: 0; color: #ff7f0e;">⚡ Flow Efficiency</h3>
+            <h2 style="margin: 0.5rem 0 0 0;">{flow_efficiency}%</h2>
+            <p style="margin: 0; font-size: 0.9rem; color: #666;">Customers with PMs</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 def main():
-    """Main Streamlit application with hierarchical Sankey enforcement and flow termination."""
-    st.set_page_config(
-        page_title='ECO Hierarchical Sankey Analyzer',
-        page_icon='📊',
-        layout='wide',
-        initial_sidebar_state='expanded'
-    )
+    """Main Streamlit application with modern, clean UI."""
     
-    st.title('📊 ECO Hierarchical Flow Analyzer')
-    st.markdown('**Structure: ECO → Items (Affected + Ancestors) → Customers → Project Managers**')
+    # Display header
+    display_header()
     
     # Sidebar for file upload and controls
     with st.sidebar:
-        st.header("📁 Data Upload")
+        st.markdown("### 📁 Data Upload")
         uploaded_file = st.file_uploader(
             "Upload Excel file",
             type=['xlsx', 'xls'],
@@ -695,13 +695,17 @@ def main():
         )
         
         if uploaded_file:
-            st.success(f"✅ File uploaded: {uploaded_file.name}")
+            st.markdown(f"""
+            <div class="uploadedFile">
+                <h4>✅ File Uploaded Successfully</h4>
+                <p><strong>{uploaded_file.name}</strong></p>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Get available sheets
             sheet_names = get_sheet_names(uploaded_file)
             if sheet_names:
-                st.subheader("📋 Sheet Selection")
-                # Try to default to 'Combined' sheet if it exists, otherwise use first sheet
+                st.markdown("### 📋 Sheet Selection")
                 default_index = 0
                 if 'Combined' in sheet_names:
                     default_index = sheet_names.index('Combined')
@@ -714,24 +718,27 @@ def main():
             else:
                 selected_sheet = None
         
-        #hierarchy information
-        st.header("🏗️ Hierarchy")
+        st.markdown("---")
+        st.markdown("### 🏗️ Hierarchy Structure")
         st.info("**Level 1:** ECO Number")
         st.info("**Level 2:** Items (Affected Items + Ancestors)")
         st.info("**Level 3:** Customers (only if they exist)")
         st.info("**Level 4:** Project Managers (only if they exist)")
-        
     
     # Main content area
     if not uploaded_file:
-        st.info("👈 Please upload an Excel file to get started")
         st.markdown("""
-        ### Required Columns for Hierarchical Analysis:
-        - **ECO #**: Engineering Change Order number (Level 1)
-        - **Affected Item**: Part numbers affected by the ECO (Level 2)
-        - **Customers**: Customer names, comma-separated (Level 3)
-        - **PMs**: Project Manager names, comma-separated (Level 4)
-        """)
+        <div style="text-align: center; padding: 3rem; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 15px; margin: 2rem 0;">
+            <h2>👈 Please upload an Excel file to get started</h2>
+            <h3>Required Columns for Hierarchical Analysis:</h3>
+            <div style="text-align: left; max-width: 600px; margin: 0 auto;">
+                <p><strong>• ECO #:</strong> Engineering Change Order number (Level 1)</p>
+                <p><strong>• Affected Item:</strong> Part numbers affected by the ECO (Level 2)</p>
+                <p><strong>• Customers:</strong> Customer names, comma-separated (Level 3)</p>
+                <p><strong>• PMs:</strong> Project Manager names, comma-separated (Level 4)</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         return
     
     if not sheet_names:
@@ -747,11 +754,11 @@ def main():
         return
     
     # ECO selection section
-    st.header("PM Finder")
+    st.markdown("## 🔍 ECO Analysis")
     
     available_ecos = get_available_ecos(df)
     
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([3, 1])
     
     with col1:
         eco_input = st.text_input(
@@ -763,16 +770,15 @@ def main():
     with col2:
         st.markdown("**Available ECOs:**")
         with st.expander(f"View all {len(available_ecos)} ECOs"):
-            # Show ECOs in a more organized way
             for i, eco in enumerate(available_ecos):
-                if i < 4:  # Show first 4
+                if i < 10:
                     st.text(eco)
-                elif i == 4:
-                    st.text(f"... and {len(available_ecos) - 100} more")
+                elif i == 10:
+                    st.text(f"... and {len(available_ecos) - 10} more")
                     break
     
-    # Generate Hierarchical Sankey diagram
-    if st.button("🔍 Generate Hierarchical Sankey Diagram", type="primary"):
+    # Generate button with modern styling
+    if st.button("🚀 Generate Hierarchical Sankey Diagram", type="primary"):
         if not eco_input.strip():
             st.error("❌ Please enter an ECO number")
             return
@@ -797,9 +803,9 @@ def main():
                 st.info("💡 Try checking the exact spelling and case of the ECO number")
             return
         
-        # Display hierarchical summary
-        st.header("📊 Hierarchical Analysis Results")
-        display_hierarchical_summary(df, filtered_df, eco_number, validation_summary)
+        # Display metrics dashboard
+        st.markdown("## 📊 Analysis Results")
+        display_metrics_dashboard(validation_summary)
         
         # Generate and display Hierarchical Sankey diagram
         with st.spinner("Generating hierarchical Sankey diagram..."):
@@ -810,7 +816,7 @@ def main():
                 st.plotly_chart(fig, use_container_width=True)
                 
                 # Display detailed hierarchical breakdown
-                with st.expander("📋 Hierarchical Data Breakdown"):
+                with st.expander("📋 Detailed Hierarchical Data Breakdown"):
                     st.subheader("Raw Data for ECO")
                     display_columns = ['Change_Order', 'Affected_PN', 'Customers', 'PMs']
                     if 'Days Open' in filtered_df.columns:
@@ -833,7 +839,6 @@ def main():
                         st.write("**Level 2 - Items:**")
                         st.caption("(Affected Items + Ancestors)")
                         for item in sankey_data['levels'][2]:
-                            # Show if this item has customers or terminates
                             item_data = sankey_data['item_relationships'].get(item, {})
                             termination = " (→)" if item_data.get('customers') else " (END)"
                             st.text(f"• {item}{termination}")
@@ -841,8 +846,6 @@ def main():
                     with col3:
                         st.write("**Level 3 - Customers:**")
                         for customer in sankey_data['levels'][3]:
-                            # Show if this customer has PMs or terminates
-                            # Check if this customer has any PMs associated through any item
                             has_pm = False
                             for item_data in sankey_data['item_relationships'].values():
                                 if customer in item_data['customers'] and item_data['pms']:
