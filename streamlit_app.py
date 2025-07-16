@@ -7,8 +7,8 @@ from typing import Optional, Dict, List, Tuple, Set
 from collections import defaultdict
 
 # ───────────────── CONFIG ───────────────────────────────
-REQUIRED_COLUMNS = ["ECO #", "Affected Item", "Customers", "PMs"]
-OPTIONAL_COLUMNS = ["Days Open", "Ancestors"]
+REQUIRED_COLUMNS = ["ECO Number", "Affected Item", "Sold To Name", "Program Manager"]
+OPTIONAL_COLUMNS = ["Days Open"]
 
 # Hierarchical structure definition
 HIERARCHY_LEVELS = {
@@ -124,14 +124,21 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
         
         # Clean data
         df_clean = df.copy()
-        df_clean = df_clean.dropna(subset=['ECO #'])
-        df_clean = df_clean[df_clean['ECO #'].astype(str).str.strip() != '']
-        df_clean = df_clean[df_clean['ECO #'].astype(str).str.upper() != 'NAN']
+        df_clean = df_clean.dropna(subset=['ECO Number'])
+        df_clean = df_clean[df_clean['ECO Number'].astype(str).str.strip() != '']
+        df_clean = df_clean[df_clean['ECO Number'].astype(str).str.upper() != 'NAN']
         
-        # Standardize columns
-        df_clean['ECO #'] = df_clean['ECO #'].astype(str).str.strip()
-        df_clean['Change_Order'] = df_clean['ECO #']
-        df_clean['Affected_PN'] = df_clean['Affected Item']
+        # Standardize columns for consistency with existing code
+        df_clean['ECO Number'] = df_clean['ECO Number'].astype(str).str.strip()
+        df_clean['Change_Order'] = df_clean['ECO Number']
+        df_clean['Affected_PN'] = df_clean['Affected Item'].astype(str).str.strip()
+        df_clean['Customer'] = df_clean['Sold To Name'].astype(str).str.strip()
+        df_clean['PM'] = df_clean['Program Manager'].astype(str).str.strip()
+        
+        # Clean up any NaN values in key fields
+        df_clean = df_clean[df_clean['Affected_PN'] != 'nan']
+        df_clean = df_clean[df_clean['Customer'] != 'nan']
+        df_clean = df_clean[df_clean['PM'] != 'nan']
         
         return df_clean
         
@@ -139,127 +146,44 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
         st.error(f"Error reading Excel file: {str(e)}")
         return None
 
-def parse_delimited_field(field_value: str) -> List[str]:
-    """Parse comma-delimited field and return cleaned values"""
-    if pd.isna(field_value) or field_value == '' or str(field_value).upper() == 'NAN':
-        return []
-    
-    items = [item.strip() for item in re.split(r',\s*', str(field_value))]
-    items = [item for item in items if item and item != '#N/A' and item.upper() != 'NAN' and item.strip() != '']
-    
-    return items
-
 def get_available_ecos(df: pd.DataFrame) -> List[str]:
     """Get sorted list of unique ECO numbers"""
     unique_ecos = df['Change_Order'].unique()
     unique_ecos = [eco for eco in unique_ecos if pd.notna(eco) and str(eco).upper() != 'NAN']
     return sorted(unique_ecos)
 
-def extract_all_items_and_ancestors(filtered_df: pd.DataFrame) -> Tuple[Set[str], Dict[str, Dict]]:
-    """Extract all affected items and ancestors with relationships"""
-    all_items = set()
-    item_relationships = {}
-    
-    for _, row in filtered_df.iterrows():
-        # Get affected item
-        affected_item = str(row['Affected_PN']).strip() if pd.notna(row['Affected_PN']) else ''
-        
-        # Get ancestors if available
-        ancestors = []
-        if 'Ancestors' in row and pd.notna(row['Ancestors']):
-            ancestors = parse_delimited_field(row['Ancestors'])
-        
-        # Get customers and PMs
-        row_customers = parse_delimited_field(row['Customers'])
-        row_pms = parse_delimited_field(row['PMs'])
-        
-        # Process affected item
-        if affected_item:
-            all_items.add(affected_item)
-            if affected_item not in item_relationships:
-                item_relationships[affected_item] = {'customers': set(), 'pms': set()}
-            item_relationships[affected_item]['customers'].update(row_customers)
-            item_relationships[affected_item]['pms'].update(row_pms)
-        
-        # Process ancestors
-        for ancestor in ancestors:
-            if ancestor:
-                all_items.add(ancestor)
-                if ancestor not in item_relationships:
-                    item_relationships[ancestor] = {'customers': set(), 'pms': set()}
-                item_relationships[ancestor]['customers'].update(row_customers)
-                item_relationships[ancestor]['pms'].update(row_pms)
-    
-    return all_items, item_relationships
-
 def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
     """Filter DataFrame for specific ECO number"""
     filtered_df = df[df['Change_Order'] == eco_number].copy()
-    
-    if len(filtered_df) > 0:
-        # Parse delimited fields
-        filtered_df['CustList'] = filtered_df['Customers'].apply(parse_delimited_field)
-        filtered_df['PMList'] = filtered_df['PMs'].apply(parse_delimited_field)
-        filtered_df['Affected_PN'] = filtered_df['Affected_PN'].fillna('').astype(str).str.strip()
-        
-        # Extract items and relationships
-        all_items, item_relationships = extract_all_items_and_ancestors(filtered_df)
-        
-        # Store relationships
-        filtered_df.attrs['item_relationships'] = item_relationships
-        filtered_df.attrs['all_items'] = all_items
-    
     return filtered_df
 
 def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -> Dict:
     """Build Sankey diagram data with hierarchical structure"""
     
-    # Get the stored relationships
-    item_relationships = filtered_df.attrs.get('item_relationships', {})
-    all_items = filtered_df.attrs.get('all_items', set())
-    
     # LEVEL 1: ECO (Root node)
     level_1_nodes = [eco_number]
     
-    # LEVEL 2: All Items (Affected Items + Ancestors)
-    level_2_nodes = sorted(list(all_items))
+    # LEVEL 2: All unique affected items
+    level_2_nodes = sorted(filtered_df['Affected_PN'].unique().tolist())
     
-    # LEVEL 3: Customers (only those that exist)
-    level_3_nodes = set()
-    for item_data in item_relationships.values():
-        level_3_nodes.update(item_data['customers'])
-    level_3_nodes = sorted(list(level_3_nodes))
+    # LEVEL 3: All unique customers
+    level_3_nodes = sorted(filtered_df['Customer'].unique().tolist())
     
-    # LEVEL 4: PMs (only those that exist)
-    level_4_nodes = set()
-    for item_data in item_relationships.values():
-        level_4_nodes.update(item_data['pms'])
-    level_4_nodes = sorted(list(level_4_nodes))
+    # LEVEL 4: All unique PMs
+    level_4_nodes = sorted(filtered_df['PM'].unique().tolist())
     
     # Build complete node list maintaining hierarchy
     all_nodes = level_1_nodes + level_2_nodes + level_3_nodes + level_4_nodes
     node_to_index = {node: i for i, node in enumerate(all_nodes)}
     
-    # Build links with strict hierarchy enforcement and flow termination
+    # Build links with strict hierarchy enforcement
     links = []
     
     # LINKS: Level 1 (ECO) → Level 2 (Items)
-    item_counts_from_eco = defaultdict(int)
+    # Count how many times each item appears for this ECO
+    item_counts = filtered_df['Affected_PN'].value_counts().to_dict()
     
-    for _, row in filtered_df.iterrows():
-        # Count affected item
-        affected_item = str(row['Affected_PN']).strip() if pd.notna(row['Affected_PN']) else ''
-        if affected_item:
-            item_counts_from_eco[affected_item] += 1
-        
-        # Count ancestors
-        if 'Ancestors' in row and pd.notna(row['Ancestors']):
-            ancestors = parse_delimited_field(row['Ancestors'])
-            for ancestor in ancestors:
-                if ancestor:
-                    item_counts_from_eco[ancestor] += 1
-    
-    for item, count in item_counts_from_eco.items():
+    for item, count in item_counts.items():
         if item in node_to_index and eco_number in node_to_index:
             links.append({
                 'source': node_to_index[eco_number],
@@ -270,24 +194,15 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
             })
     
     # LINKS: Level 2 (Items) → Level 3 (Customers)
-    item_customer_link_counts = defaultdict(lambda: defaultdict(int))
+    # Count item-customer relationships
+    item_customer_counts = defaultdict(lambda: defaultdict(int))
     
     for _, row in filtered_df.iterrows():
-        # Get all items (affected + ancestors) from this row
-        row_items = set()
-        affected_item = str(row['Affected_PN']).strip() if pd.notna(row['Affected_PN']) else ''
-        if affected_item:
-            row_items.add(affected_item)
-        if 'Ancestors' in row and pd.notna(row['Ancestors']):
-            row_items.update(parse_delimited_field(row['Ancestors']))
-        
-        row_customers = parse_delimited_field(row['Customers'])
-        
-        for item in row_items:
-            for customer in row_customers:
-                item_customer_link_counts[item][customer] += 1
+        item = row['Affected_PN']
+        customer = row['Customer']
+        item_customer_counts[item][customer] += 1
     
-    for item, customer_counts in item_customer_link_counts.items():
+    for item, customer_counts in item_customer_counts.items():
         if item in node_to_index:
             for customer, count in customer_counts.items():
                 if customer in node_to_index:
@@ -300,17 +215,15 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
                     })
     
     # LINKS: Level 3 (Customers) → Level 4 (PMs)
-    customer_pm_link_counts = defaultdict(lambda: defaultdict(int))
+    # Count customer-PM relationships
+    customer_pm_counts = defaultdict(lambda: defaultdict(int))
     
     for _, row in filtered_df.iterrows():
-        customers = parse_delimited_field(row['Customers'])
-        pms = parse_delimited_field(row['PMs'])
-        
-        for customer in customers:
-            for pm in pms:
-                customer_pm_link_counts[customer][pm] += 1
+        customer = row['Customer']
+        pm = row['PM']
+        customer_pm_counts[customer][pm] += 1
     
-    for customer, pm_counts in customer_pm_link_counts.items():
+    for customer, pm_counts in customer_pm_counts.items():
         if customer in node_to_index:
             for pm, count in pm_counts.items():
                 if pm in node_to_index:
@@ -327,10 +240,18 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     target_indices = [link['target'] for link in links]
     values = [link['value'] for link in links]
     
-    # Count flow terminations
-    items_terminating_at_level_2 = len([item for item in level_2_nodes if not item_relationships.get(item, {}).get('customers')])
-    customers_terminating_at_level_3 = len([customer for customer in level_3_nodes 
-                                          if not any(customer_pm_link_counts.get(customer, {}).values())])
+    # Build item relationships for detailed breakdown
+    item_relationships = {}
+    for _, row in filtered_df.iterrows():
+        item = row['Affected_PN']
+        customer = row['Customer']
+        pm = row['PM']
+        
+        if item not in item_relationships:
+            item_relationships[item] = {'customers': set(), 'pms': set()}
+        
+        item_relationships[item]['customers'].add(customer)
+        item_relationships[item]['pms'].add(pm)
     
     return {
         'labels': all_nodes,
@@ -345,10 +266,7 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
         },
         'hierarchy': HIERARCHY_LEVELS,
         'item_relationships': item_relationships,
-        'flow_termination': {
-            'items_at_level_2': items_terminating_at_level_2,
-            'customers_at_level_3': customers_terminating_at_level_3
-        }
+        'raw_data': filtered_df
     }
 
 def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.Figure:
@@ -472,7 +390,7 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
         height=800,
         annotations=[
             dict(x=0.05, y=1.08, text="<b>ECO</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[1])),
-            dict(x=0.35, y=1.08, text="<b>Items</b><br><sub>(Affected + Ancestors)</sub>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[2])),
+            dict(x=0.35, y=1.08, text="<b>Items</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[2])),
             dict(x=0.65, y=1.08, text="<b>Customers</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[3])),
             dict(x=0.95, y=1.08, text="<b>Project Managers</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[4]))
         ]
@@ -519,14 +437,16 @@ def main():
         with st.expander("📋 Required Data Format"):
             st.markdown("""
             **Required Columns:**
-            - `ECO #` - Engineering Change Order number
+            - `ECO Number` - Engineering Change Order number
             - `Affected Item` - Part numbers affected by the ECO
-            - `Customers` - Customer names (comma-separated)
-            - `PMs` - Project Manager names (comma-separated)
+            - `Sold To Name` - Customer names
+            - `Program Manager` - Project Manager names
             
             **Optional Columns:**
-            - `Ancestors` - Related ancestor items
             - `Days Open` - Duration information
+            
+            **Data Format:**
+            Each row should represent one ECO-Item-Customer-PM relationship.
             """)
         return
     
@@ -573,7 +493,7 @@ def main():
     with col1:
         eco_input = st.text_input(
             "Enter ECO Number",
-            placeholder="e.g., C01798",
+            placeholder="e.g., C05706",
             help="Enter the exact ECO number to analyze"
         )
     
@@ -632,51 +552,30 @@ def main():
                     st.metric("Total Connections", len(sankey_data['source']))
                 
                 # Data details (collapsible)
-                with st.expander("📋 Hierarchical Data Breakdown"):
+                with st.expander("📋 Detailed Data Breakdown"):
                     st.subheader("Raw Data for ECO")
-                    display_columns = ['Change_Order', 'Affected_PN', 'Customers', 'PMs']
+                    display_columns = ['Change_Order', 'Affected_PN', 'Customer', 'PM']
                     if 'Days Open' in filtered_df.columns:
                         display_columns.insert(1, 'Days Open')
-                    if 'Ancestors' in filtered_df.columns:
-                        display_columns.insert(-2, 'Ancestors')
                     
                     st.dataframe(filtered_df[display_columns], use_container_width=True)
                     
-                    st.subheader("Hierarchical Structure Summary")
+                    st.subheader("Item-Customer-PM Relationships")
                     
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        st.write("**Level 1 - ECO:**")
-                        for eco in sankey_data['levels'][1]:
-                            st.text(f"• {eco}")
-                    
-                    with col2:
-                        st.write("**Level 2 - Items:**")
-                        st.caption("(Affected Items + Ancestors)")
-                        for item in sankey_data['levels'][2]:
-                            item_data = sankey_data['item_relationships'].get(item, {})
-                            termination = " (→)" if item_data.get('customers') else " (END)"
-                            st.text(f"• {item}{termination}")
-                    
-                    with col3:
-                        st.write("**Level 3 - Customers:**")
-                        for customer in sankey_data['levels'][3]:
-                            has_pm = False
-                            for item_data in sankey_data['item_relationships'].values():
-                                if customer in item_data['customers'] and item_data['pms']:
-                                    has_pm = True
-                                    break
-                            termination = " (→)" if has_pm else " (END)"
-                            st.text(f"• {customer}{termination}")
-                    
-                    with col4:
-                        st.write("**Level 4 - PMs:**")
-                        for pm in sankey_data['levels'][4]:
-                            st.text(f"• {pm} (END)")
+                    # Show detailed relationships
+                    for item in sankey_data['levels'][2]:
+                        item_data = filtered_df[filtered_df['Affected_PN'] == item]
+                        if not item_data.empty:
+                            st.write(f"**{item}:**")
+                            for _, row in item_data.iterrows():
+                                st.text(f"  → {row['Customer']} (PM: {row['PM']})")
+                            st.write("")
                 
             except Exception as e:
                 st.error(f"Error creating visualization: {str(e)}")
+                st.write("Debug info:")
+                st.write(f"Filtered data shape: {filtered_df.shape}")
+                st.write(f"Columns: {filtered_df.columns.tolist()}")
 
 if __name__ == '__main__':
     main()
