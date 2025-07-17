@@ -7,8 +7,8 @@ from typing import Optional, Dict, List, Tuple, Set
 from collections import defaultdict
 
 # ───────────────── CONFIG ───────────────────────────────
-REQUIRED_COLUMNS = ["ECO Number", "Affected Item", "Sold To Name", "Program Manager"]
-OPTIONAL_COLUMNS = ["Days Open"]
+REQUIRED_COLUMNS = ["ECO Number", "Affected Item"]
+OPTIONAL_COLUMNS = ["Days Open", "Sold To Name", "Program Manager"]
 
 # Hierarchical structure definition
 HIERARCHY_LEVELS = {
@@ -108,11 +108,38 @@ def load_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
+# ───────────────── UTILITY FUNCTIONS ───────────────────────────────
+
+def is_valid_value(value) -> bool:
+    """Check if a value is valid (not NaN, None, empty string, or 'nan')"""
+    if pd.isna(value):
+        return False
+    if value is None:
+        return False
+    str_value = str(value).strip()
+    if str_value == '' or str_value.upper() == 'NAN':
+        return False
+    return True
+
+def clean_value(value) -> Optional[str]:
+    """Clean and return a value if valid, otherwise return None"""
+    if not is_valid_value(value):
+        return None
+    return str(value).strip()
+
+def get_termination_placeholder(level: str) -> str:
+    """Get placeholder name for terminated flows"""
+    placeholders = {
+        'customer': '[No Customer Data]',
+        'pm': '[No PM Data]'
+    }
+    return placeholders.get(level, '[Missing Data]')
+
 # ───────────────── CORE FUNCTIONS ───────────────────────────────
 
 @st.cache_data
 def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
-    """Load and validate Excel data with minimal logging"""
+    """Load and validate Excel data with robust missing value handling"""
     try:
         df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
         
@@ -122,23 +149,38 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
             st.error(f"Missing required columns: {', '.join(missing_required)}")
             return None
         
-        # Clean data
+        # Clean data - only filter out rows where ECO Number or Affected Item are missing
         df_clean = df.copy()
-        df_clean = df_clean.dropna(subset=['ECO Number'])
-        df_clean = df_clean[df_clean['ECO Number'].astype(str).str.strip() != '']
-        df_clean = df_clean[df_clean['ECO Number'].astype(str).str.upper() != 'NAN']
         
-        # Standardize columns for consistency with existing code
+        # Remove rows where required fields are missing
+        initial_count = len(df_clean)
+        df_clean = df_clean[df_clean['ECO Number'].apply(is_valid_value)]
+        df_clean = df_clean[df_clean['Affected Item'].apply(is_valid_value)]
+        
+        if len(df_clean) == 0:
+            st.error("No valid data found. All rows are missing ECO Number or Affected Item.")
+            return None
+        
+        # Report data cleaning results
+        removed_count = initial_count - len(df_clean)
+        if removed_count > 0:
+            st.info(f"Removed {removed_count} rows with missing ECO Number or Affected Item")
+        
+        # Standardize columns for consistency
         df_clean['ECO Number'] = df_clean['ECO Number'].astype(str).str.strip()
         df_clean['Change_Order'] = df_clean['ECO Number']
         df_clean['Affected_PN'] = df_clean['Affected Item'].astype(str).str.strip()
-        df_clean['Customer'] = df_clean['Sold To Name'].astype(str).str.strip()
-        df_clean['PM'] = df_clean['Program Manager'].astype(str).str.strip()
         
-        # Clean up any NaN values in key fields
-        df_clean = df_clean[df_clean['Affected_PN'] != 'nan']
-        df_clean = df_clean[df_clean['Customer'] != 'nan']
-        df_clean = df_clean[df_clean['PM'] != 'nan']
+        # Handle optional columns with missing values
+        if 'Sold To Name' in df_clean.columns:
+            df_clean['Customer'] = df_clean['Sold To Name'].apply(clean_value)
+        else:
+            df_clean['Customer'] = None
+            
+        if 'Program Manager' in df_clean.columns:
+            df_clean['PM'] = df_clean['Program Manager'].apply(clean_value)
+        else:
+            df_clean['PM'] = None
         
         return df_clean
         
@@ -149,7 +191,7 @@ def load_excel_data(uploaded_file, sheet_name: str) -> Optional[pd.DataFrame]:
 def get_available_ecos(df: pd.DataFrame) -> List[str]:
     """Get sorted list of unique ECO numbers"""
     unique_ecos = df['Change_Order'].unique()
-    unique_ecos = [eco for eco in unique_ecos if pd.notna(eco) and str(eco).upper() != 'NAN']
+    unique_ecos = [eco for eco in unique_ecos if is_valid_value(eco)]
     return sorted(unique_ecos)
 
 def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
@@ -157,26 +199,65 @@ def filter_data_by_eco(df: pd.DataFrame, eco_number: str) -> pd.DataFrame:
     filtered_df = df[df['Change_Order'] == eco_number].copy()
     return filtered_df
 
+def analyze_data_completeness(filtered_df: pd.DataFrame) -> Dict:
+    """Analyze data completeness for the filtered dataset"""
+    total_rows = len(filtered_df)
+    
+    # Count valid values in each column
+    valid_customers = filtered_df['Customer'].apply(lambda x: x is not None).sum()
+    valid_pms = filtered_df['PM'].apply(lambda x: x is not None).sum()
+    
+    # Calculate percentages
+    customer_completeness = (valid_customers / total_rows * 100) if total_rows > 0 else 0
+    pm_completeness = (valid_pms / total_rows * 100) if total_rows > 0 else 0
+    
+    return {
+        'total_rows': total_rows,
+        'valid_customers': valid_customers,
+        'valid_pms': valid_pms,
+        'customer_completeness': customer_completeness,
+        'pm_completeness': pm_completeness,
+        'missing_customers': total_rows - valid_customers,
+        'missing_pms': total_rows - valid_pms
+    }
+
 def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -> Dict:
-    """Build Sankey diagram data with hierarchical structure"""
+    """Build Sankey diagram data with graceful handling of missing values"""
+    
+    # Analyze data completeness
+    completeness = analyze_data_completeness(filtered_df)
     
     # LEVEL 1: ECO (Root node)
     level_1_nodes = [eco_number]
     
-    # LEVEL 2: All unique affected items
+    # LEVEL 2: All unique affected items (always present due to required field validation)
     level_2_nodes = sorted(filtered_df['Affected_PN'].unique().tolist())
     
-    # LEVEL 3: All unique customers
-    level_3_nodes = sorted(filtered_df['Customer'].unique().tolist())
+    # LEVEL 3: Customers (including termination placeholder if needed)
+    level_3_nodes = []
+    valid_customers = filtered_df[filtered_df['Customer'].notna()]['Customer'].unique()
+    if len(valid_customers) > 0:
+        level_3_nodes.extend(sorted(valid_customers.tolist()))
     
-    # LEVEL 4: All unique PMs
-    level_4_nodes = sorted(filtered_df['PM'].unique().tolist())
+    # Add termination placeholder if there are missing customers
+    if completeness['missing_customers'] > 0:
+        level_3_nodes.append(get_termination_placeholder('customer'))
+    
+    # LEVEL 4: PMs (including termination placeholder if needed)
+    level_4_nodes = []
+    valid_pms = filtered_df[filtered_df['PM'].notna()]['PM'].unique()
+    if len(valid_pms) > 0:
+        level_4_nodes.extend(sorted(valid_pms.tolist()))
+    
+    # Add termination placeholder if there are missing PMs
+    if completeness['missing_pms'] > 0:
+        level_4_nodes.append(get_termination_placeholder('pm'))
     
     # Build complete node list maintaining hierarchy
     all_nodes = level_1_nodes + level_2_nodes + level_3_nodes + level_4_nodes
     node_to_index = {node: i for i, node in enumerate(all_nodes)}
     
-    # Build links with strict hierarchy enforcement
+    # Build links with graceful termination handling
     links = []
     
     # LINKS: Level 1 (ECO) → Level 2 (Items)
@@ -193,13 +274,17 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
                 'flow_type': 'eco_to_item'
             })
     
-    # LINKS: Level 2 (Items) → Level 3 (Customers)
-    # Count item-customer relationships
+    # LINKS: Level 2 (Items) → Level 3 (Customers or Termination)
     item_customer_counts = defaultdict(lambda: defaultdict(int))
     
     for _, row in filtered_df.iterrows():
         item = row['Affected_PN']
         customer = row['Customer']
+        
+        # If customer is missing, route to termination placeholder
+        if customer is None:
+            customer = get_termination_placeholder('customer')
+        
         item_customer_counts[item][customer] += 1
     
     for item, customer_counts in item_customer_counts.items():
@@ -214,14 +299,21 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
                         'flow_type': 'item_to_customer'
                     })
     
-    # LINKS: Level 3 (Customers) → Level 4 (PMs)
-    # Count customer-PM relationships
+    # LINKS: Level 3 (Customers) → Level 4 (PMs or Termination)
+    # Only create links from actual customers (not termination placeholders)
     customer_pm_counts = defaultdict(lambda: defaultdict(int))
     
     for _, row in filtered_df.iterrows():
         customer = row['Customer']
         pm = row['PM']
-        customer_pm_counts[customer][pm] += 1
+        
+        # Only process if customer is valid (not None)
+        if customer is not None:
+            # If PM is missing, route to termination placeholder
+            if pm is None:
+                pm = get_termination_placeholder('pm')
+            
+            customer_pm_counts[customer][pm] += 1
     
     for customer, pm_counts in customer_pm_counts.items():
         if customer in node_to_index:
@@ -244,8 +336,8 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     item_relationships = {}
     for _, row in filtered_df.iterrows():
         item = row['Affected_PN']
-        customer = row['Customer']
-        pm = row['PM']
+        customer = row['Customer'] if row['Customer'] is not None else get_termination_placeholder('customer')
+        pm = row['PM'] if row['PM'] is not None else get_termination_placeholder('pm')
         
         if item not in item_relationships:
             item_relationships[item] = {'customers': set(), 'pms': set()}
@@ -266,11 +358,12 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
         },
         'hierarchy': HIERARCHY_LEVELS,
         'item_relationships': item_relationships,
-        'raw_data': filtered_df
+        'raw_data': filtered_df,
+        'completeness': completeness
     }
 
 def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.Figure:
-    """Create Plotly Sankey figure with strict hierarchical coloring, positioning, and flow termination"""
+    """Create Plotly Sankey figure with special styling for termination nodes"""
     
     labels = sankey_data['labels']
     source = sankey_data['source']
@@ -281,31 +374,46 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     # Hierarchical color scheme
     LEVEL_COLORS = {
         1: '#1f77b4',  # ECO - Deep Blue
-        2: '#ff7f0e',  # Items (Affected + Ancestors) - Orange
+        2: '#ff7f0e',  # Items - Orange
         3: '#2ca02c',  # Customers - Green
         4: '#d62728'   # PMs - Red
     }
     
-    # Assign colors based on strict hierarchy
+    # Special color for termination placeholders
+    TERMINATION_COLOR = '#808080'  # Gray
+    
+    # Assign colors based on hierarchy and termination status
     node_colors = []
     for label in labels:
-        color_assigned = False
-        for level, nodes in levels.items():
-            if label in nodes:
-                node_colors.append(LEVEL_COLORS[level])
-                color_assigned = True
-                break
-        
-        if not color_assigned:
-            node_colors.append('#808080')
+        # Check if this is a termination placeholder
+        if label.startswith('[') and label.endswith(']'):
+            node_colors.append(TERMINATION_COLOR)
+        else:
+            color_assigned = False
+            for level, nodes in levels.items():
+                if label in nodes:
+                    node_colors.append(LEVEL_COLORS[level])
+                    color_assigned = True
+                    break
+            
+            if not color_assigned:
+                node_colors.append('#808080')
     
     # Create link colors with transparency based on value
     if value:
         max_value = max(value) if value else 1
         link_colors = []
-        for v in value:
-            alpha = 0.3 + 0.5 * (v / max_value)
-            link_colors.append(f'rgba(31, 119, 180, {alpha})')
+        for i, v in enumerate(value):
+            # Use different color for links going to termination nodes
+            target_label = labels[target[i]]
+            if target_label.startswith('[') and target_label.endswith(']'):
+                # Gray color for termination links
+                alpha = 0.2 + 0.3 * (v / max_value)
+                link_colors.append(f'rgba(128, 128, 128, {alpha})')
+            else:
+                # Blue color for normal links
+                alpha = 0.3 + 0.5 * (v / max_value)
+                link_colors.append(f'rgba(31, 119, 180, {alpha})')
     else:
         link_colors = []
     
@@ -346,11 +454,14 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     # Create custom hover data for nodes
     node_customdata = []
     for label in labels:
-        level_info = "Unknown"
-        for level_num, nodes_at_level in levels.items():
-            if label in nodes_at_level:
-                level_info = f"Level {level_num} - {HIERARCHY_LEVELS[level_num]}"
-                break
+        if label.startswith('[') and label.endswith(']'):
+            level_info = "Termination Point - Missing Data"
+        else:
+            level_info = "Unknown"
+            for level_num, nodes_at_level in levels.items():
+                if label in nodes_at_level:
+                    level_info = f"Level {level_num} - {HIERARCHY_LEVELS[level_num]}"
+                    break
         node_customdata.append(level_info)
     
     # Create the Sankey diagram
@@ -398,6 +509,257 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     
     return fig
 
+def create_pm_overview(filtered_df: pd.DataFrame, eco_number: str) -> Dict:
+    """Create a comprehensive overview of PM relationships with customers and parts"""
+    
+    pm_overview = {}
+    
+    # Group data by PM
+    for _, row in filtered_df.iterrows():
+        pm = row['PM'] if row['PM'] is not None else '[Missing PM]'
+        customer = row['Customer'] if row['Customer'] is not None else '[Missing Customer]'
+        part = row['Affected_PN']
+        
+        # Initialize PM entry if not exists
+        if pm not in pm_overview:
+            pm_overview[pm] = {
+                'customers': {},
+                'total_parts': set(),
+                'total_customers': set(),
+                'record_count': 0
+            }
+        
+        # Initialize customer entry for this PM if not exists
+        if customer not in pm_overview[pm]['customers']:
+            pm_overview[pm]['customers'][customer] = {
+                'parts': set(),
+                'record_count': 0
+            }
+        
+        # Add part to customer's parts list
+        pm_overview[pm]['customers'][customer]['parts'].add(part)
+        pm_overview[pm]['customers'][customer]['record_count'] += 1
+        
+        # Add to PM's totals
+        pm_overview[pm]['total_parts'].add(part)
+        pm_overview[pm]['total_customers'].add(customer)
+        pm_overview[pm]['record_count'] += 1
+    
+    # Convert sets to sorted lists for better display
+    for pm in pm_overview:
+        pm_overview[pm]['total_parts'] = sorted(list(pm_overview[pm]['total_parts']))
+        pm_overview[pm]['total_customers'] = sorted(list(pm_overview[pm]['total_customers']))
+        
+        for customer in pm_overview[pm]['customers']:
+            pm_overview[pm]['customers'][customer]['parts'] = sorted(list(pm_overview[pm]['customers'][customer]['parts']))
+    
+    return pm_overview
+
+def display_pm_overview(pm_overview: Dict, eco_number: str):
+    """Display the PM overview in a structured, readable format"""
+    
+    st.subheader(f"👥 Program Manager Overview for ECO {eco_number}")
+    
+    # Summary statistics
+    total_pms = len(pm_overview)
+    missing_pm_count = 1 if '[Missing PM]' in pm_overview else 0
+    valid_pms = total_pms - missing_pm_count
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total PMs", total_pms)
+    with col2:
+        st.metric("Valid PMs", valid_pms)
+    with col3:
+        st.metric("Missing PM Data", missing_pm_count)
+    
+    # Sort PMs - put missing PM at the end
+    sorted_pms = sorted([pm for pm in pm_overview.keys() if not pm.startswith('[')])
+    if '[Missing PM]' in pm_overview:
+        sorted_pms.append('[Missing PM]')
+    
+    # Create tabs for different views
+    tab1, tab2, tab3 = st.tabs(["📋 Detailed View", "📊 Summary Table", "🔍 Search & Filter"])
+    
+    with tab1:
+        # Detailed view for each PM
+        for pm in sorted_pms:
+            pm_data = pm_overview[pm]
+            
+            # PM header with styling
+            if pm.startswith('['):
+                st.markdown(f"""
+                <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #6c757d; margin: 1rem 0;">
+                    <h4 style="margin: 0; color: #6c757d;">⚠️ {pm}</h4>
+                    <p style="margin: 0.5rem 0 0 0; color: #6c757d;">
+                        {pm_data['record_count']} records • {len(pm_data['total_customers'])} customers • {len(pm_data['total_parts'])} parts
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background-color: #e3f2fd; padding: 1rem; border-radius: 8px; border-left: 4px solid #2196f3; margin: 1rem 0;">
+                    <h4 style="margin: 0; color: #1976d2;">👤 {pm}</h4>
+                    <p style="margin: 0.5rem 0 0 0; color: #1976d2;">
+                        {pm_data['record_count']} records • {len(pm_data['total_customers'])} customers • {len(pm_data['total_parts'])} parts
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Customer and parts breakdown
+            with st.expander(f"View details for {pm}", expanded=False):
+                
+                # Quick summary
+                st.write("**📈 Quick Summary:**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Total Customers:** {len(pm_data['total_customers'])}")
+                    for customer in pm_data['total_customers']:
+                        customer_display = customer if not customer.startswith('[') else f"⚠️ {customer}"
+                        st.write(f"  • {customer_display}")
+                
+                with col2:
+                    st.write(f"**Total Parts:** {len(pm_data['total_parts'])}")
+                    for part in pm_data['total_parts']:
+                        st.write(f"  • {part}")
+                
+                st.divider()
+                
+                # Detailed customer-part relationships
+                st.write("**🔗 Customer-Part Relationships:**")
+                
+                for customer in sorted(pm_data['customers'].keys()):
+                    customer_data = pm_data['customers'][customer]
+                    
+                    if customer.startswith('['):
+                        st.markdown(f"**⚠️ {customer}** ({customer_data['record_count']} records)")
+                    else:
+                        st.markdown(f"**🏢 {customer}** ({customer_data['record_count']} records)")
+                    
+                    # Display parts for this customer
+                    parts_per_row = 3
+                    parts_list = customer_data['parts']
+                    
+                    for i in range(0, len(parts_list), parts_per_row):
+                        cols = st.columns(parts_per_row)
+                        for j, part in enumerate(parts_list[i:i+parts_per_row]):
+                            with cols[j]:
+                                st.write(f"  📦 {part}")
+                    
+                    st.write("")  # Add spacing
+    
+    with tab2:
+        # Summary table view
+        st.write("**📊 PM Summary Table**")
+        
+        # Create summary data for table
+        summary_data = []
+        for pm in sorted_pms:
+            pm_data = pm_overview[pm]
+            summary_data.append({
+                'Program Manager': pm,
+                'Total Records': pm_data['record_count'],
+                'Customers': len(pm_data['total_customers']),
+                'Parts': len(pm_data['total_parts']),
+                'Customer List': ', '.join(pm_data['total_customers'][:3]) + ('...' if len(pm_data['total_customers']) > 3 else ''),
+                'Part List': ', '.join(pm_data['total_parts'][:3]) + ('...' if len(pm_data['total_parts']) > 3 else '')
+            })
+        
+        summary_df = pd.DataFrame(summary_data)
+        st.dataframe(summary_df, use_container_width=True)
+        
+        # Additional statistics
+        st.write("**📈 Statistics:**")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            avg_customers = sum(len(pm_data['total_customers']) for pm_data in pm_overview.values()) / len(pm_overview)
+            st.metric("Avg Customers per PM", f"{avg_customers:.1f}")
+        
+        with col2:
+            avg_parts = sum(len(pm_data['total_parts']) for pm_data in pm_overview.values()) / len(pm_overview)
+            st.metric("Avg Parts per PM", f"{avg_parts:.1f}")
+        
+        with col3:
+            avg_records = sum(pm_data['record_count'] for pm_data in pm_overview.values()) / len(pm_overview)
+            st.metric("Avg Records per PM", f"{avg_records:.1f}")
+    
+    with tab3:
+        # Search and filter functionality
+        st.write("**🔍 Search & Filter**")
+        
+        # Search by PM name
+        pm_search = st.text_input("Search Program Manager:", placeholder="Enter PM name...")
+        
+        # Filter by customer
+        all_customers = set()
+        for pm_data in pm_overview.values():
+            all_customers.update(pm_data['total_customers'])
+        customer_filter = st.selectbox("Filter by Customer:", ['All'] + sorted(list(all_customers)))
+        
+        # Filter by part
+        all_parts = set()
+        for pm_data in pm_overview.values():
+            all_parts.update(pm_data['total_parts'])
+        part_filter = st.selectbox("Filter by Part:", ['All'] + sorted(list(all_parts)))
+        
+        # Apply filters
+        filtered_pms = []
+        for pm in sorted_pms:
+            pm_data = pm_overview[pm]
+            
+            # PM name filter
+            if pm_search and pm_search.lower() not in pm.lower():
+                continue
+            
+            # Customer filter
+            if customer_filter != 'All' and customer_filter not in pm_data['total_customers']:
+                continue
+            
+            # Part filter
+            if part_filter != 'All' and part_filter not in pm_data['total_parts']:
+                continue
+            
+            filtered_pms.append(pm)
+        
+        # Display filtered results
+        if filtered_pms:
+            st.write(f"**Found {len(filtered_pms)} matching PM(s):**")
+            
+            for pm in filtered_pms:
+                pm_data = pm_overview[pm]
+                
+                with st.expander(f"{pm} ({pm_data['record_count']} records)"):
+                    
+                    # Show relevant customers and parts based on filters
+                    relevant_customers = pm_data['total_customers']
+                    relevant_parts = pm_data['total_parts']
+                    
+                    if customer_filter != 'All':
+                        relevant_customers = [customer_filter]
+                    if part_filter != 'All':
+                        relevant_parts = [part_filter]
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write("**Customers:**")
+                        for customer in relevant_customers:
+                            st.write(f"  • {customer}")
+                    
+                    with col2:
+                        st.write("**Parts:**")
+                        for part in relevant_parts:
+                            st.write(f"  • {part}")
+                    
+                    # Show specific relationships if both filters are applied
+                    if customer_filter != 'All' and part_filter != 'All':
+                        if customer_filter in pm_data['customers'] and part_filter in pm_data['customers'][customer_filter]['parts']:
+                            st.success(f"✅ {pm} manages {part_filter} for {customer_filter}")
+                        else:
+                            st.warning(f"❌ No direct relationship found between {customer_filter} and {part_filter} for {pm}")
+        else:
+            st.info("No PMs match the current filters.")
+
 # ───────────────── MAIN APPLICATION ───────────────────────────────
 
 def main():
@@ -417,7 +779,6 @@ def main():
     <div class="main-header">
         <h1 style="margin: 0; font-size: 2.5rem;">📊 ECO Flow Analyzer</h1>
         <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
-            Simple • Clean • Intuitive
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -439,14 +800,16 @@ def main():
             **Required Columns:**
             - `ECO Number` - Engineering Change Order number
             - `Affected Item` - Part numbers affected by the ECO
-            - `Sold To Name` - Customer names
-            - `Program Manager` - Project Manager names
             
             **Optional Columns:**
+            - `Sold To Name` - Customer names (can have missing values)
+            - `Program Manager` - Project Manager names (can have missing values)
             - `Days Open` - Duration information
             
-            **Data Format:**
-            Each row should represent one ECO-Item-Customer-PM relationship.
+            **Missing Data Handling:**
+            - Rows with missing ECO Number or Affected Item will be excluded
+            - Missing customer or PM data will be shown as termination points
+            - The flow will gracefully terminate where data is incomplete
             """)
         return
     
@@ -538,6 +901,27 @@ def main():
                 # Display chart
                 st.plotly_chart(fig, use_container_width=True)
                 
+                # PM Overview Section
+                pm_overview = create_pm_overview(filtered_df, eco_number)
+                display_pm_overview(pm_overview, eco_number)
+                
+                # Data completeness summary
+                completeness = sankey_data['completeness']
+                
+                st.subheader("📊 Data Completeness Summary")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Total Records", completeness['total_rows'])
+                with col2:
+                    st.metric("Customer Data", f"{completeness['customer_completeness']:.1f}%", 
+                             delta=f"{completeness['valid_customers']}/{completeness['total_rows']}")
+                with col3:
+                    st.metric("PM Data", f"{completeness['pm_completeness']:.1f}%",
+                             delta=f"{completeness['valid_pms']}/{completeness['total_rows']}")
+                with col4:
+                    st.metric("Missing Data Points", completeness['missing_customers'] + completeness['missing_pms'])
+                
                 # Summary metrics
                 st.subheader("📈 Flow Summary")
                 col1, col2, col3, col4 = st.columns(4)
@@ -545,31 +929,40 @@ def main():
                 with col1:
                     st.metric("Items", len(sankey_data['levels'][2]))
                 with col2:
-                    st.metric("Customers", len(sankey_data['levels'][3]))
+                    st.metric("Customers", len([c for c in sankey_data['levels'][3] if not c.startswith('[')]))
                 with col3:
-                    st.metric("Project Managers", len(sankey_data['levels'][4]))
+                    st.metric("Project Managers", len([p for p in sankey_data['levels'][4] if not p.startswith('[')]))
                 with col4:
                     st.metric("Total Connections", len(sankey_data['source']))
                 
                 # Data details (collapsible)
                 with st.expander("📋 Detailed Data Breakdown"):
                     st.subheader("Raw Data for ECO")
-                    display_columns = ['Change_Order', 'Affected_PN', 'Customer', 'PM']
+                    display_columns = ['Change_Order', 'Affected_PN']
                     if 'Days Open' in filtered_df.columns:
-                        display_columns.insert(1, 'Days Open')
+                        display_columns.append('Days Open')
+                    display_columns.extend(['Customer', 'PM'])
                     
-                    st.dataframe(filtered_df[display_columns], use_container_width=True)
+                    # Create display dataframe with missing value indicators
+                    display_df = filtered_df[display_columns].copy()
+                    display_df['Customer'] = display_df['Customer'].fillna('[Missing Customer]')
+                    display_df['PM'] = display_df['PM'].fillna('[Missing PM]')
+                    
+                    st.dataframe(display_df, use_container_width=True)
                     
                     st.subheader("Item-Customer-PM Relationships")
                     
-                    # Show detailed relationships
+                    # Show detailed relationships with missing data indicators
                     for item in sankey_data['levels'][2]:
                         item_data = filtered_df[filtered_df['Affected_PN'] == item]
                         if not item_data.empty:
                             st.write(f"**{item}:**")
                             for _, row in item_data.iterrows():
-                                st.text(f"  → {row['Customer']} (PM: {row['PM']})")
+                                customer = row['Customer'] if row['Customer'] is not None else '[Missing Customer]'
+                                pm = row['PM'] if row['PM'] is not None else '[Missing PM]'
+                                st.text(f"  → {customer} (PM: {pm})")
                             st.write("")
+                    
                 
             except Exception as e:
                 st.error(f"Error creating visualization: {str(e)}")
