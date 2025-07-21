@@ -29,7 +29,7 @@ def load_custom_css():
     <style>
     /* Main container styling */
     .main .block-container {
-        padding-top: 2rem;
+        padding-top: 0;
         padding-bottom: 2rem;
         max-width: 1200px;
     }
@@ -37,7 +37,7 @@ def load_custom_css():
     /* Header styling */
     .main-header {
         text-align: center;
-        padding: 1.5rem 0;
+        padding: 0.3rem 0;
         margin-bottom: 2rem;
         background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         border-radius: 12px;
@@ -94,9 +94,9 @@ def load_custom_css():
     }
     
     /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    #MainMenu { display: none !important; }
+    footer { display: none !important; }
+    header { display: none !important; }
     
     /* Clean metrics */
     [data-testid="metric-container"] {
@@ -646,22 +646,8 @@ def display_pm_overview(pm_overview: Dict, eco_number: str):
             
             # Customer and parts breakdown
             with st.expander(f"View details for {pm}", expanded=False):
-                
-                # Quick summary
-                st.write("**📈 Quick Summary:**")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Total Customers:** {len(pm_data['total_customers'])}")
-                    for customer in pm_data['total_customers']:
-                        customer_display = customer if not customer.startswith('[') else f"⚠️ {customer}"
-                        st.write(f"  • {customer_display}")
-                
-                with col2:
-                    st.write(f"**Total Parts:** {len(pm_data['total_parts'])}")
-                    for part in pm_data['total_parts']:
-                        st.write(f"  • {part}")
-                
-                st.divider()
+            
+
                 
                 # Detailed customer-part relationships
                 st.write("**🔗 Customer-Part Relationships:**")
@@ -817,7 +803,7 @@ def main():
     <div class="main-header">
         <h1 style="margin: 0; font-size: 2.5rem;">📊 ECO Flow Analyzer</h1>
         <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
-            Visualize Engineering Change Order flows through hierarchical layers
+            Visualize Engineering Change Order flows
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -877,15 +863,6 @@ def main():
     
     if df is None:
         return
-    
-    # Success message and data summary
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("📊 Total Records", len(df))
-    with col2:
-        st.metric("🔢 Unique ECOs", len(df['Change_Order'].unique()))
-    with col3:
-        st.metric("📋 Sheet", selected_sheet)
     
     st.success(f"✅ Data loaded successfully!")
     
