@@ -24,73 +24,132 @@ pio.templates.default = "plotly_white"
 
 # ───────────────── STYLING ───────────────────────────────
 def load_custom_css():
-    """Load custom CSS for clean, minimalist design"""
+    """Load custom CSS for compact, single-view design"""
     st.markdown("""
     <style>
-    /* Main container styling */
+    /* Main container styling - more compact */
     .main .block-container {
-        padding-top: 0;
-        padding-bottom: 2rem;
-        max-width: 1200px;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        max-width: 1400px;
     }
     
-    /* Header styling */
-    .main-header {
+    /* Compact header styling */
+    .compact-header {
         text-align: center;
-        padding: 0.3rem 0;
-        margin-bottom: 2rem;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        border-radius: 12px;
-        color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Card styling */
-    .metric-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #667eea;
+        padding: 0.5rem 0;
         margin-bottom: 1rem;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        color: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     
-    /* Clean button styling */
+    /* Compact section headers */
+    .section-header {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin: 0.5rem 0;
+        color: #333;
+    }
+    
+    /* Enhanced PM Card styling - More Compact */
+    .pm-card {
+        background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+        border: 2px solid #9467bd;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 4px 12px rgba(148, 103, 189, 0.15);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .pm-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(148, 103, 189, 0.25);
+    }
+
+    .pm-card-header {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #6b46c1;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .pm-card-content {
+        font-size: 0.9rem;
+        color: #4b5563;
+        line-height: 1.4;
+    }
+    
+    .pm-items-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .pm-items-section {
+        background: rgba(255, 255, 255, 0.8);
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #9467bd;
+    }
+    
+    .pm-items-title {
+        font-weight: 600;
+        color: #6b46c1;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .pm-item {
+        background: #f3f4f6;
+        padding: 0.3rem 0.6rem;
+        margin: 0.2rem 0;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        color: #374151;
+        display: inline-block;
+        margin-right: 0.3rem;
+    }
+    
+    /* Compact metrics */
+    [data-testid="metric-container"] {
+        background: white;
+        border: 1px solid #e9ecef;
+        padding: 0.5rem;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Compact buttons */
     .stButton > button {
-        width: 100%;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        border-radius: 6px;
         background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
     }
     
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    /* File uploader styling */
+    /* Compact file uploader */
     .uploadedFile {
         background: #f8f9fa;
-        border: 2px dashed #667eea;
-        border-radius: 8px;
-        padding: 1rem;
+        border: 1px dashed #667eea;
+        border-radius: 6px;
+        padding: 0.5rem;
         text-align: center;
+        font-size: 0.9rem;
     }
     
-    /* Success/Error message styling */
-    .stSuccess, .stError, .stInfo, .stWarning {
-        border-radius: 8px;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background: #f8f9fa;
+    /* Compact expanders */
+    .streamlit-expanderHeader {
+        font-size: 0.9rem;
+        padding: 0.5rem;
     }
     
     /* Hide Streamlit branding */
@@ -98,13 +157,24 @@ def load_custom_css():
     footer { display: none !important; }
     header { display: none !important; }
     
-    /* Clean metrics */
-    [data-testid="metric-container"] {
-        background: white;
-        border: 1px solid #e9ecef;
-        padding: 1rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    /* Compact tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.5rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Compact dataframes */
+    .dataframe {
+        font-size: 0.8rem;
+    }
+    
+    /* Reduce spacing between elements */
+    .element-container {
+        margin-bottom: 0.5rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -409,8 +479,8 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
     for _, row in filtered_df.iterrows():
         item = row['Affected_PN']
         item_type = row['Item_Type']
-        customer = row['Customer'] if row['Customer'] is not None else '[Missing Customer]' # Keep placeholders for textual summary
-        pm = row['PM'] if row['PM'] is not None else '[Missing PM]' # Keep placeholders for textual summary
+        customer = row['Customer'] if row['Customer'] is not None else '[Missing Customer]'
+        pm = row['PM'] if row['PM'] is not None else 'N/A'
         where_used = row['Where_Used'] if row['Where_Used'] is not None else 'N/A'
         
         if item not in item_relationships:
@@ -440,7 +510,7 @@ def build_hierarchical_sankey_data(filtered_df: pd.DataFrame, eco_number: str) -
             4: [n for n, l in node_to_definitive_level.items() if l == 4],
             5: [n for n, l in node_to_definitive_level.items() if l == 5]
         },
-        'node_to_definitive_level': node_to_definitive_level, # Pass this for positioning
+        'node_to_definitive_level': node_to_definitive_level,
         'hierarchy': HIERARCHY_LEVELS,
         'item_relationships': item_relationships,
         'raw_data': filtered_df,
@@ -474,7 +544,7 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
         max_value = max(value) if value else 1
         for v in value:
             alpha = 0.3 + 0.5 * (v / max_value)
-            link_colors.append(f'rgba(31, 119, 180, {alpha})') # Default blue for links
+            link_colors.append(f'rgba(31, 119, 180, {alpha})')
     
     # Calculate node positions for better hierarchy visualization (5 levels)
     x_positions = {
@@ -492,17 +562,17 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     
     y_positions_map = {}
     for level_num, nodes_in_level in nodes_by_level.items():
-        nodes_in_level.sort() # Sort alphabetically for consistent y-positioning
+        nodes_in_level.sort()
         if len(nodes_in_level) == 1:
             y_positions_map[nodes_in_level[0]] = 0.5
         else:
             for i in range(len(nodes_in_level)):
                 y_pos = 0.1 + (0.8 * i / (len(nodes_in_level) - 1))
-                y_positions_map[nodes_in_level[i]] = y_pos # Corrected line
+                y_positions_map[nodes_in_level[i]] = y_pos
     
     # Create node position arrays and custom hover data
     node_x = [x_positions[node_to_definitive_level[label]] for label in labels]
-    node_y = [y_positions_map.get(label, 0.5) for label in labels] # Use calculated y-positions
+    node_y = [y_positions_map.get(label, 0.5) for label in labels]
     
     node_customdata = [f"Level {node_to_definitive_level[label]} - {HIERARCHY_LEVELS[node_to_definitive_level[label]]}" for label in labels]
     
@@ -532,16 +602,16 @@ def create_hierarchical_sankey_figure(sankey_data: Dict, eco_number: str) -> go.
     # Update layout with 5-level hierarchical title and annotations
     fig.update_layout(
         font=dict(size=11, family='Arial', color='white'),
-        margin=dict(l=40, r=40, t=120, b=40),
+        margin=dict(l=40, r=40, t=80, b=40),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        height=900,
+        height=600,  # Reduced height for compact view
         annotations=[
-            dict(x=0.02, y=1.1, text="<b>ECO</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[1])),
-            dict(x=0.25, y=1.1, text="<b>Parts</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[2])),
-            dict(x=0.48, y=1.1, text="<b>TLAs</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[3])),
-            dict(x=0.71, y=1.1, text="<b>Customers</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[4])),
-            dict(x=0.94, y=1.1, text="<b>PMs</b>", showarrow=False, font=dict(size=14, color=LEVEL_COLORS[5]))
+            dict(x=0.02, y=1.08, text="<b>ECO</b>", showarrow=False, font=dict(size=12, color=LEVEL_COLORS[1])),
+            dict(x=0.25, y=1.08, text="<b>Parts</b>", showarrow=False, font=dict(size=12, color=LEVEL_COLORS[2])),
+            dict(x=0.48, y=1.08, text="<b>TLAs</b>", showarrow=False, font=dict(size=12, color=LEVEL_COLORS[3])),
+            dict(x=0.71, y=1.08, text="<b>Customers</b>", showarrow=False, font=dict(size=12, color=LEVEL_COLORS[4])),
+            dict(x=0.94, y=1.08, text="<b>PMs</b>", showarrow=False, font=dict(size=12, color=LEVEL_COLORS[5]))
         ]
     )
     
@@ -593,201 +663,152 @@ def create_pm_overview(filtered_df: pd.DataFrame, eco_number: str) -> Dict:
     
     return pm_overview
 
-def display_pm_overview(pm_overview: Dict, eco_number: str):
-    """Display the PM overview in a structured, readable format"""
+def display_compact_pm_overview(pm_overview: Dict, eco_number: str):
+    """Display compact PM overview"""
     
-    st.subheader(f"👥 Program Manager Overview for ECO {eco_number}")
+    st.markdown('<div class="section-header">👥 Program Manager Overview</div>', unsafe_allow_html=True)
     
-    # Summary statistics
+    # Summary statistics in compact format
     total_pms = len(pm_overview)
     missing_pm_count = 1 if '[Missing PM]' in pm_overview else 0
     valid_pms = total_pms - missing_pm_count
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total PMs", total_pms)
+        st.metric("Total PMs", total_pms, label_visibility="visible")
     with col2:
-        st.metric("Valid PMs", valid_pms)
+        st.metric("Valid PMs", valid_pms, label_visibility="visible")
     with col3:
-        st.metric("Missing PM Data", missing_pm_count)
+        st.metric("Missing PM", missing_pm_count, label_visibility="visible")
+    with col4:
+        avg_records = sum(pm_data['record_count'] for pm_data in pm_overview.values()) / len(pm_overview) if pm_overview else 0
+        st.metric("Avg Records/PM", f"{avg_records:.1f}", label_visibility="visible")
     
-    # Sort PMs - put missing PM at the end
+    # Compact PM list
     sorted_pms = sorted([pm for pm in pm_overview.keys() if not pm.startswith('[')])
     if '[Missing PM]' in pm_overview:
         sorted_pms.append('[Missing PM]')
     
-    # Create tabs for different views
-    tab1, tab2, tab3 = st.tabs(["📋 Detailed View", "📊 Summary Table", "🔍 Search & Filter"])
+    # Display PMs in a compact table format
+    pm_data_list = []
+    for pm in sorted_pms:
+        pm_data = pm_overview[pm]
+        customers_str = ', '.join(pm_data['total_customers'][:2])
+        if len(pm_data['total_customers']) > 2:
+            customers_str += f" (+{len(pm_data['total_customers'])-2} more)"
+        
+        parts_str = ', '.join(pm_data['total_parts'][:2])
+        if len(pm_data['total_parts']) > 2:
+            parts_str += f" (+{len(pm_data['total_parts'])-2} more)"
+            
+        pm_data_list.append({
+            'PM': pm,
+            'Records': pm_data['record_count'],
+            'Customers': customers_str,
+            'Parts': parts_str
+        })
     
-    with tab1:
-        # Detailed view for each PM
-        for pm in sorted_pms:
-            pm_data = pm_overview[pm]
-            
-            # PM header with styling
-            if pm.startswith('['):
-                st.markdown(f"""
-                <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #6c757d; margin: 1rem 0;">
-                    <h4 style="margin: 0; color: #6c757d;">⚠️ {pm}</h4>
-                    <p style="margin: 0.5rem 0 0 0; color: #6c757d;">
-                        {pm_data['record_count']} records • {len(pm_data['total_customers'])} customers • {len(pm_data['total_parts'])} parts
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div style="background-color: #e3f2fd; padding: 1rem; border-radius: 8px; border-left: 4px solid #2196f3; margin: 1rem 0;">
-                    <h4 style="margin: 0; color: #1976d2;">👤 {pm}</h4>
-                    <p style="margin: 0.5rem 0 0 0; color: #1976d2;">
-                        {pm_data['record_count']} records • {len(pm_data['total_customers'])} customers • {len(pm_data['total_parts'])} parts
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Customer and parts breakdown
-            with st.expander(f"View details for {pm}", expanded=False):
-            
+    if pm_data_list:
+        pm_df = pd.DataFrame(pm_data_list)
+        st.dataframe(pm_df, use_container_width=True, height=200)
 
+def create_pm_cards_for_eco(df: pd.DataFrame, filtered_df: pd.DataFrame, eco_number: str) -> Dict:
+    """Create PM cards showing their information for the current ECO only"""
+    
+    # Get all PMs that appear in this ECO's data
+    eco_pms = filtered_df['PM'].dropna().unique()
+    
+    pm_cards_data = {}
+    
+    for pm in eco_pms:
+        # Get data for this PM in the current ECO only
+        pm_eco_data = filtered_df[filtered_df['PM'] == pm]
+        
+        # Get customers and parts for this PM in the context of the current ECO
+        eco_customers = sorted(pm_eco_data['Customer'].dropna().unique())
+        eco_parts = sorted(pm_eco_data['Affected_PN'].unique())
+        
+        # Separate parts by type
+        parts_data = pm_eco_data[['Affected_PN', 'Item_Type']].drop_duplicates()
+        actual_parts = sorted(parts_data[parts_data['Item_Type'] == 'Part']['Affected_PN'].tolist())
+        tlas = sorted(parts_data[parts_data['Item_Type'] == 'TLA']['Affected_PN'].tolist())
+        
+        pm_cards_data[pm] = {
+            'eco_customers': eco_customers,
+            'eco_parts': actual_parts,
+            'eco_tlas': tlas,
+            'eco_record_count': len(pm_eco_data)
+        }
+    
+    return pm_cards_data
+
+def display_pm_cards(pm_cards_data: Dict, eco_number: str):
+    """Display compact PM cards underneath the Sankey diagram"""
+    
+    if not pm_cards_data:
+        st.info("No Program Managers found for this ECO.")
+        return
+    
+    st.markdown('<div class="section-header">👤 Program Managers in this ECO</div>', unsafe_allow_html=True)
+    
+    # Display PM cards in a grid
+    num_pms = len(pm_cards_data)
+    cols_per_row = 2 if num_pms > 1 else 1
+    
+    pm_names = sorted(pm_cards_data.keys())
+    
+    for i in range(0, len(pm_names), cols_per_row):
+        cols = st.columns(cols_per_row)
+        
+        for j, pm_name in enumerate(pm_names[i:i+cols_per_row]):
+            with cols[j]:
+                pm_data = pm_cards_data[pm_name]
                 
-                # Detailed customer-part relationships
-                st.write("**🔗 Customer-Part Relationships:**")
+                # Create compact PM card with enhanced styling
+                st.markdown(f"""
+                <div class="pm-card">
+                    <div class="pm-card-header">👤 {pm_name}</div>
+                    <div class="pm-card-content">
+                        <strong>In ECO {eco_number}:</strong><br>
+                        • {pm_data['eco_record_count']} records<br>
+                        • {len(pm_data['eco_customers'])} customers<br>
+                        • {len(pm_data['eco_parts'])} parts<br>
+                        • {len(pm_data['eco_tlas'])} TLAs
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                for customer in sorted(pm_data['customers'].keys()):
-                    customer_data = pm_data['customers'][customer]
+                # Compact expandable details
+                with st.expander(f"Details for {pm_name}", expanded=False):
                     
-                    if customer.startswith('['):
-                        st.markdown(f"**⚠️ {customer}** ({customer_data['record_count']} records)")
+                    # Customers in current ECO
+                    st.markdown(f"**Customers in ECO {eco_number}:**")
+                    if pm_data['eco_customers']:
+                        customers_text = ', '.join(pm_data['eco_customers'])
+                        st.text(customers_text)
                     else:
-                        st.markdown(f"**🏢 {customer}** ({customer_data['record_count']} records)")
+                        st.text("None")
                     
-                    # Display parts for this customer
-                    parts_per_row = 3
-                    parts_list = customer_data['parts']
+                    # Parts in current ECO
+                    st.markdown(f"**Parts in ECO {eco_number}:**")
+                    if pm_data['eco_parts']:
+                        parts_text = ', '.join(pm_data['eco_parts'])
+                        st.text(parts_text)
+                    else:
+                        st.text("None")
                     
-                    for i in range(0, len(parts_list), parts_per_row):
-                        cols = st.columns(parts_per_row)
-                        for j, part in enumerate(parts_list[i:i+parts_per_row]):
-                            with cols[j]:
-                                st.write(f"  📦 {part}")
-                    
-                    st.write("")  # Add spacing
-    
-    with tab2:
-        # Summary table view
-        st.write("**📊 PM Summary Table**")
-        
-        # Create summary data for table
-        summary_data = []
-        for pm in sorted_pms:
-            pm_data = pm_overview[pm]
-            summary_data.append({
-                'Program Manager': pm,
-                'Total Records': pm_data['record_count'],
-                'Customers': len(pm_data['total_customers']),
-                'Parts': len(pm_data['total_parts']),
-                'Customer List': ', '.join(pm_data['total_customers'][:3]) + ('...' if len(pm_data['total_customers']) > 3 else ''),
-                'Part List': ', '.join(pm_data['total_parts'][:3]) + ('...' if len(pm_data['total_parts']) > 3 else '')
-            })
-        
-        summary_df = pd.DataFrame(summary_data)
-        st.dataframe(summary_df, use_container_width=True)
-        
-        # Additional statistics
-        st.write("**📈 Statistics:**")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            avg_customers = sum(len(pm_data['total_customers']) for pm_data in pm_overview.values()) / len(pm_overview)
-            st.metric("Avg Customers per PM", f"{avg_customers:.1f}")
-        
-        with col2:
-            avg_parts = sum(len(pm_data['total_parts']) for pm_data in pm_overview.values()) / len(pm_overview)
-            st.metric("Avg Parts per PM", f"{avg_parts:.1f}")
-        
-        with col3:
-            avg_records = sum(pm_data['record_count'] for pm_data in pm_overview.values()) / len(pm_overview)
-            st.metric("Avg Records per PM", f"{avg_records:.1f}")
-    
-    with tab3:
-        # Search and filter functionality
-        st.write("**🔍 Search & Filter**")
-        
-        # Search by PM name
-        pm_search = st.text_input("Search Program Manager:", placeholder="Enter PM name...")
-        
-        # Filter by customer
-        all_customers = set()
-        for pm_data in pm_overview.values():
-            all_customers.update(pm_data['total_customers'])
-        customer_filter = st.selectbox("Filter by Customer:", ['All'] + sorted(list(all_customers)))
-        
-        # Filter by part
-        all_parts = set()
-        for pm_data in pm_overview.values():
-            all_parts.update(pm_data['total_parts'])
-        part_filter = st.selectbox("Filter by Part:", ['All'] + sorted(list(all_parts)))
-        
-        # Apply filters
-        filtered_pms = []
-        for pm in sorted_pms:
-            pm_data = pm_overview[pm]
-            
-            # PM name filter
-            if pm_search and pm_search.lower() not in pm.lower():
-                continue
-            
-            # Customer filter
-            if customer_filter != 'All' and customer_filter not in pm_data['total_customers']:
-                continue
-            
-            # Part filter
-            if part_filter != 'All' and part_filter not in pm_data['total_parts']:
-                continue
-            
-            filtered_pms.append(pm)
-        
-        # Display filtered results
-        if filtered_pms:
-            st.write(f"**Found {len(filtered_pms)} matching PM(s):**")
-            
-            for pm in filtered_pms:
-                pm_data = pm_overview[pm]
-                
-                with st.expander(f"{pm} ({pm_data['record_count']} records)"):
-                    
-                    # Show relevant customers and parts based on filters
-                    relevant_customers = pm_data['total_customers']
-                    relevant_parts = pm_data['total_parts']
-                    
-                    if customer_filter != 'All':
-                        relevant_customers = [customer_filter]
-                    if part_filter != 'All':
-                        relevant_parts = [part_filter]
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.write("**Customers:**")
-                        for customer in relevant_customers:
-                            st.write(f"  • {customer}")
-                    
-                    with col2:
-                        st.write("**Parts:**")
-                        for part in relevant_parts:
-                            st.write(f"  • {part}")
-                    
-                    # Show specific relationships if both filters are applied
-                    if customer_filter != 'All' and part_filter != 'All':
-                        if customer_filter in pm_data['customers'] and part_filter in pm_data['customers'][customer_filter]['parts']:
-                            st.success(f"✅ {pm} manages {part_filter} for {customer_filter}")
-                        else:
-                            st.warning(f"❌ No direct relationship found between {customer_filter} and {part_filter} for {pm}")
-        else:
-            st.info("No PMs match the current filters.")
+                    # TLAs in current ECO
+                    if pm_data['eco_tlas']:
+                        st.markdown(f"**TLAs in ECO {eco_number}:**")
+                        tlas_text = ', '.join(pm_data['eco_tlas'])
+                        st.text(tlas_text)
+                    else:
+                        st.text("None")
 
 # ───────────────── MAIN APPLICATION ───────────────────────────────
 
 def main():
-    """Main Streamlit application with clean, minimalist design"""
+    """Main Streamlit application with compact, single-view design"""
     st.set_page_config(
         page_title='ECO Flow Analyzer',
         page_icon='📊',
@@ -798,234 +819,172 @@ def main():
     # Load custom CSS
     load_custom_css()
     
-    # Main header
+    # Compact header
     st.markdown("""
-    <div class="main-header">
-        <h1 style="margin: 0; font-size: 2.5rem;">📊 ECO Flow Analyzer</h1>
-        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
-            Visualize Engineering Change Order flows
+    <div class="compact-header">
+        <h1 style="margin: 0; font-size: 1.8rem;">📊 ECO Flow Analyzer</h1>
+        <p style="margin: 0.2rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">
+            Visualize Engineering Change Order flows through hierarchical layers
         </p>
     </div>
     """, unsafe_allow_html=True)
     
-    # File upload section
-    st.subheader("📁 Upload Your Data")
-    uploaded_file = st.file_uploader(
-        "Choose an Excel file",
-        type=['xlsx', 'xls'],
-        help="Upload an Excel file containing ECO data"
-    )
+    # Compact top section with file upload and ECO selection
+    col1, col2 = st.columns([1, 1])
     
-    if not uploaded_file:
-        st.info("👆 Upload an Excel file to get started")
-        
-        # Show requirements in a clean format
-        with st.expander("📋 Required Data Format"):
-            st.markdown("""
-            **Required Columns:**
-            - `ECO Number` - Engineering Change Order number
-            - `Affected Item` - Part numbers or TLA names
-            - `ItemType` - Either "Part" or "TLA"
-            
-            **Optional Columns:**
-            - `Sold To Name` - Customer names (can have missing values)
-            - `Program Manager` - Project Manager names (can have missing values)
-            - `Days Open` - Duration information
-            - `Where Used` - TLA references for Parts (comma-separated if multiple)
-            
-            **Flow Structure:**
-            - ECO → Parts → TLAs → Customers → PMs
-            - Parts (ItemType = "Part") connect to TLAs via "Where Used" field
-            - TLAs (ItemType = "TLA") can also be direct affected items
-            - "Where Used" field supports comma-separated multiple TLAs
-            - Missing customer or PM data will be shown as termination points
-            """)
-        return
-    
-    # Load data
-    with st.spinner("Loading data..."):
-        # Get sheet names
-        try:
-            excel_file = pd.ExcelFile(uploaded_file)
-            sheet_names = excel_file.sheet_names
-        except Exception as e:
-            st.error(f"Error reading Excel file: {str(e)}")
-            return
-        
-        # Sheet selection
-        if len(sheet_names) > 1:
-            selected_sheet = st.selectbox("Select sheet:", sheet_names)
-        else:
-            selected_sheet = sheet_names[0]
-        
-        # Load data
-        df = load_excel_data(uploaded_file, selected_sheet)
-    
-    if df is None:
-        return
-    
-    st.success(f"✅ Data loaded successfully!")
-    
-    # ECO selection
-    st.subheader("🔍 Analyze ECO")
-
-    available_ecos = get_available_ecos(df)
-
-    col1, col2 = st.columns([2, 1])
-
     with col1:
-        eco_input = st.text_input(
-            "Enter ECO Number",
-            placeholder="e.g., C05706",
-            help="Enter the exact ECO number to analyze",
-            key="eco_text_input"
+        st.markdown('<div class="section-header">📁 Upload Data</div>', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader(
+            "Choose Excel file",
+            type=['xlsx', 'xls'],
+            help="Upload ECO data file",
+            label_visibility="collapsed"
         )
-
-    with col2:
-        # Simple selectbox dropdown that's scrollable by default
-        selected_eco = st.selectbox(
-            "Or select from list:",
-            options=[''] + available_ecos,
-            format_func=lambda x: "Choose an ECO..." if x == '' else x,
-            help=f"Select from {len(available_ecos)} available ECOs",
-            key="eco_selectbox"
-        )
-
-    # Use the selected ECO if available, otherwise use manual input
-    if selected_eco and selected_eco != '':
-        eco_to_analyze = selected_eco
-        # Show which ECO was selected
-        st.info(f"Selected ECO: {selected_eco}")
-    else:
-        eco_to_analyze = eco_input
-
-    # Generate analysis
-    if st.button("🚀 Generate Flow Analysis"):
-        if not eco_to_analyze.strip():
-            st.error("Please enter or select an ECO number")
-            return
         
-        eco_number = eco_to_analyze.strip()
-        
-        # Filter data
-        with st.spinner("Analyzing data..."):
-            filtered_df = filter_data_by_eco(df, eco_number)
-        
-        if filtered_df.empty:
-            st.error(f"No data found for ECO '{eco_number}'")
-            
-            # Suggest similar ECOs
-            similar_ecos = [eco for eco in available_ecos if eco_number.upper() in eco.upper()]
-            if similar_ecos:
-                st.info(f"💡 Similar ECOs: {', '.join(similar_ecos[:5])}")
-            return
-        
-        # Display results
-        st.success(f"Found {len(filtered_df)} records for ECO {eco_number}")
-        
-        # Generate Sankey diagram
-        with st.spinner("Creating visualization..."):
+        if uploaded_file:
+            # Load data
             try:
-                sankey_data = build_hierarchical_sankey_data(filtered_df, eco_number)
-                fig = create_hierarchical_sankey_figure(sankey_data, eco_number)
+                excel_file = pd.ExcelFile(uploaded_file)
+                sheet_names = excel_file.sheet_names
                 
-                # Display chart
-                st.plotly_chart(fig, use_container_width=True)
+                if len(sheet_names) > 1:
+                    selected_sheet = st.selectbox("Sheet:", sheet_names, label_visibility="collapsed")
+                else:
+                    selected_sheet = sheet_names[0]
+                    st.info(f"Using sheet: {selected_sheet}")
                 
-                # PM Overview Section
+                df = load_excel_data(uploaded_file, selected_sheet)
+                
+                if df is not None:
+                    pass
+                    
+                                        
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+                df = None
+        else:
+            df = None
+    
+    with col2:
+        if df is not None:
+            st.markdown('<div class="section-header">🔍 Analyze ECO</div>', unsafe_allow_html=True)
+
+            available_ecos = get_available_ecos(df)
+
+            # Unified ECO search: Combines dropdown and text input, default blank
+            eco_options = [""] + available_ecos  # Add blank option at the top
+            eco_to_analyze = st.selectbox(
+                "ECO Number (type or select)",
+                options=eco_options,
+                index=0,
+                placeholder="Type or select ECO number...",
+                label_visibility="collapsed"
+            )
+
+            if st.button("🚀 Generate Analysis", use_container_width=True):
+                if not eco_to_analyze or not eco_to_analyze.strip():
+                    st.error("Please enter or select an ECO number")
+                else:
+                    eco_number = eco_to_analyze.strip()
+                    # Filter data
+                    filtered_df = filter_data_by_eco(df, eco_number)
+                    if filtered_df.empty:
+                        st.error(f"No data found for ECO '{eco_number}'")
+                    else:
+                        # Store in session state for display
+                        st.session_state['eco_data'] = {
+                            'eco_number': eco_number,
+                            'filtered_df': filtered_df,
+                            'full_df': df
+                        }
+                        st.rerun()
+        else:
+            pass
+    
+    # Main dashboard view
+    if 'eco_data' in st.session_state:
+        eco_number = st.session_state['eco_data']['eco_number']
+        filtered_df = st.session_state['eco_data']['filtered_df']
+        full_df = st.session_state['eco_data']['full_df']
+        
+        st.markdown(f'<div class="section-header">📈 Flow Analysis for ECO {eco_number}</div>', unsafe_allow_html=True)
+        
+        # Compact metrics row
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        try:
+            sankey_data = build_hierarchical_sankey_data(filtered_df, eco_number)
+            
+            with col1:
+                st.metric("Records", len(filtered_df))
+            with col2:
+                parts = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 2]
+                st.metric("Parts", len(parts))
+            with col3:
+                tlas = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 3]
+                st.metric("TLAs", len(tlas))
+            with col4:
+                customers = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 4]
+                st.metric("Customers", len(customers))
+            with col5:
+                pms = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 5]
+                st.metric("PMs", len(pms))
+            
+            # Sankey diagram (unchanged design, just more compact)
+            fig = create_hierarchical_sankey_figure(sankey_data, eco_number)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Enhanced PM Cards underneath the Sankey diagram
+            pm_cards_data = create_pm_cards_for_eco(full_df, filtered_df, eco_number)
+            display_pm_cards(pm_cards_data, eco_number)
+            
+            # Details section underneath
+            st.markdown("---")
+            st.markdown('<div class="section-header">📋 Detailed Analysis</div>', unsafe_allow_html=True)
+            
+            # Compact tabs for details
+            tab1, tab2, tab3 = st.tabs(["PM Overview", "Data Summary", "Raw Data"])
+            
+            with tab1:
                 pm_overview = create_pm_overview(filtered_df, eco_number)
-                display_pm_overview(pm_overview, eco_number)
-                
-                # Data completeness summary
+                display_compact_pm_overview(pm_overview, eco_number)
+            
+            with tab2:
                 completeness = sankey_data['completeness']
                 
-                st.subheader("📊 Data Completeness Summary")
                 col1, col2, col3, col4 = st.columns(4)
-                
                 with col1:
                     st.metric("Total Records", completeness['total_rows'])
                 with col2:
-                    st.metric("Customer Data", f"{completeness['customer_completeness']:.1f}%", 
-                             delta=f"{completeness['valid_customers']}/{completeness['total_rows']}")
+                    st.metric("Customer Data", f"{completeness['customer_completeness']:.1f}%")
                 with col3:
-                    st.metric("PM Data", f"{completeness['pm_completeness']:.1f}%",
-                             delta=f"{completeness['valid_pms']}/{completeness['total_rows']}")
+                    st.metric("PM Data", f"{completeness['pm_completeness']:.1f}%")
                 with col4:
-                    st.metric("Missing Data Points", completeness['missing_customers'] + completeness['missing_pms'])
+                    st.metric("Missing Data", completeness['missing_customers'] + completeness['missing_pms'])
                 
-                # Summary metrics
-                st.subheader("📈 Flow Summary")
-                col1, col2, col3, col4 = st.columns(4)
+                # Compact item relationships
+                st.markdown("**Item Relationships:**")
+                for _, row in filtered_df.head(10).iterrows():  # Show only first 10 for compactness
+                    item = row['Affected_PN']
+                    item_type = row['Item_Type']
+                    customer = row['Customer'] if row['Customer'] is not None else '[Missing]'
+                    pm = row['PM'] if row['PM'] is not None else '[Missing]'
+                    st.text(f"{item} ({item_type}) → {customer} → {pm}")
                 
-                with col1:
-                    # Count only actual parts, not including ECO or TLAs that are not parts
-                    actual_parts = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 2]
-                    st.metric("Parts", len(actual_parts))
-                with col2:
-                    actual_tlas = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 3]
-                    st.metric("TLAs", len(actual_tlas))
-                with col3:
-                    actual_customers = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 4]
-                    st.metric("Customers", len(actual_customers))
-                with col4:
-                    actual_pms = [n for n, l in sankey_data['node_to_definitive_level'].items() if l == 5]
-                    st.metric("Project Managers", len(actual_pms))
+                if len(filtered_df) > 10:
+                    st.info(f"Showing first 10 of {len(filtered_df)} items")
+            
+            with tab3:
+                display_columns = ['Change_Order', 'Affected_PN', 'Item_Type', 'Customer', 'PM', 'Where_Used']
+                display_df = filtered_df[display_columns].copy()
+                display_df['Customer'] = display_df['Customer'].fillna('[Missing]')
+                display_df['PM'] = display_df['PM'].fillna('[Missing]')
+                display_df['Where_Used'] = display_df['Where_Used'].fillna('N/A')
                 
-                # Data details (collapsible)
-                with st.expander("📋 Detailed Data Breakdown"):
-                    st.subheader("Raw Data for ECO")
-                    display_columns = ['Change_Order', 'Affected_PN', 'Item_Type']
-                    if 'Days Open' in filtered_df.columns:
-                        display_columns.append('Days Open')
-                    display_columns.extend(['Customer', 'PM', 'Where_Used'])
-                    
-                    # Create display dataframe with missing value indicators
-                    display_df = filtered_df[display_columns].copy()
-                    display_df['Customer'] = display_df['Customer'].fillna('[Missing Customer]')
-                    display_df['PM'] = display_df['PM'].fillna('[Missing PM]')
-                    display_df['Where_Used'] = display_df['Where_Used'].fillna('N/A')
-                    
-                    st.dataframe(display_df, use_container_width=True)
-                    
-                    st.subheader("Item-Customer-PM Relationships")
-                    
-                    # Show detailed relationships with missing data indicators
-                    # Iterate through the original filtered_df to get all relationships
-                    for _, row in filtered_df.iterrows():
-                        item = row['Affected_PN']
-                        item_type = row['Item_Type']
-                        customer = row['Customer'] if row['Customer'] is not None else '[Missing Customer]'
-                        pm = row['PM'] if row['PM'] is not None else '[Missing PM]'
-                        where_used = row['Where_Used'] if row['Where_Used'] is not None else 'N/A'
-                        
-                        st.write(f"**{item} (Type: {item_type}):**")
-                        st.text(f"  → Customer: {customer} (PM: {pm})")
-                        if item_type == 'Part' and where_used != 'N/A':
-                            st.text(f"  → Where Used (TLAs): {where_used}")
-                        st.write("")
-                    
-                    # Missing data summary
-                    if completeness['missing_customers'] > 0 or completeness['missing_pms'] > 0:
-                        st.subheader("⚠️ Missing Data Summary")
-                        if completeness['missing_customers'] > 0:
-                            st.warning(f"**{completeness['missing_customers']} records** are missing customer information. These flows terminate at the TLA level in the diagram.")
-                        if completeness['missing_pms'] > 0:
-                            st.warning(f"**{completeness['missing_pms']} records** are missing PM information. These flows terminate at the Customer level in the diagram.")
-                        st.info("Flows with incomplete data terminate at the last available node in the diagram for clarity.")
-              
-            except Exception as e:
-                st.error(f"Error creating visualization: {str(e)}")
-                st.write("Debug info:")
-                st.write(f"Filtered data shape: {filtered_df.shape}")
-                st.write(f"Columns: {filtered_df.columns.tolist()}")
-                if 'sankey_data' in locals():
-                    st.write(f"Sankey Data (labels, source, target, value):")
-                    st.write(f"Labels: {sankey_data.get('labels', 'N/A')}")
-                    st.write(f"Source: {sankey_data.get('source', 'N/A')}")
-                    st.write(f"Target: {sankey_data.get('target', 'N/A')}")
-                    st.write(f"Value: {sankey_data.get('value', 'N/A')}")
-                    st.write(f"Node to Definitive Level: {sankey_data.get('node_to_definitive_level', 'N/A')}")
-
+                st.dataframe(display_df, use_container_width=True, height=400)
+                
+        except Exception as e:
+            st.error(f"Error creating visualization: {str(e)}")
 
 if __name__ == '__main__':
     main()
