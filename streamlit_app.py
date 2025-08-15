@@ -810,7 +810,7 @@ import pandas as pd
 
 def ecos_missing_pm(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Return ECOs that have zero PMs anywhere in the ECO (global).
+    Return ECOs that have zero PMs anywhere in the ECO.
     Treats NaN and empty/whitespace strings as missing.
     """
     if 'Change_Order' not in df.columns or 'PM' not in df.columns:
@@ -990,7 +990,7 @@ def main():
                 df = load_excel_data(uploaded_file, selected_sheet)
                 
                 if df is not None:
-                    with st.expander("🧭 ECOs with no PM (global)", expanded=False):
+                    with st.expander("🧭 ECOs with no PM", expanded=False):
                         missing_pm_df = ecos_missing_pm(df)
                         st.write(f"**{len(missing_pm_df)}** ECO(s) with no PM found.")
                         st.dataframe(missing_pm_df, use_container_width=True, height=260)
