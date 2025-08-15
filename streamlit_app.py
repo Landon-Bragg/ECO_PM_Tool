@@ -805,6 +805,140 @@ def display_pm_cards(pm_cards_data: Dict, eco_number: str):
                     else:
                         st.text("None")
 
+import numpy as np
+import pandas as pd
+
+def ecos_missing_pm(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return ECOs that have zero PMs anywhere in the ECO (global).
+    Treats NaN and empty/whitespace strings as missing.
+    """
+    if 'Change_Order' not in df.columns or 'PM' not in df.columns:
+        raise KeyError("Expected columns 'Change_Order' and 'PM' to exist.")
+
+    # Normalize PM field: trim whitespace; convert empty/'nan' strings to NaN
+    pm_clean = (
+        df['PM']
+        .astype(str)
+        .str.strip()
+        .replace({'': np.nan, 'nan': np.nan, 'None': np.nan, 'NaN': np.nan})
+    )
+    df = df.copy()
+    df['PM_clean'] = pm_clean
+
+    # For each ECO, did ANY row have a non-missing PM?
+    eco_has_pm = (
+        df.groupby('Change_Order')['PM_clean']
+          .apply(lambda s: s.notna().any())
+          .reset_index(name='has_pm')
+    )
+
+    # ECOs with no PMs globally
+    missing_ecos = eco_has_pm.loc[~eco_has_pm['has_pm'], 'Change_Order']
+
+    # (Optional context) Customers present on those ECOs
+    cust_col = 'Customer' if 'Customer' in df.columns else None
+    if cust_col:
+        customers = (
+            df[df['Change_Order'].isin(missing_ecos)]
+            .groupby('Change_Order')[cust_col]
+            .apply(lambda s: sorted({x for x in s.dropna().astype(str).str.strip() if x} or ['[No Customers Listed]']))
+            .reset_index(name='Customers')
+        )
+    else:
+        customers = pd.DataFrame({'Change_Order': missing_ecos, 'Customers': ['[Column missing]'] * len(missing_ecos)})
+
+    # Basic stats per ECO (records / parts / TLAs)
+    if 'Item_Type' in df.columns:
+        stats = (
+            df[df['Change_Order'].isin(missing_ecos)]
+            .groupby('Change_Order')
+            .agg(
+                records=('Change_Order', 'size'),
+                parts=('Item_Type', lambda x: (x == 'Part').sum()),
+                tlas=('Item_Type', lambda x: (x == 'TLA').sum()),
+            )
+            .reset_index()
+        )
+    else:
+        stats = (
+            df[df['Change_Order'].isin(missing_ecos)]
+            .groupby('Change_Order')
+            .agg(records=('Change_Order', 'size'))
+            .reset_index()
+        )
+        stats['parts'] = np.nan
+        stats['tlas'] = np.nan
+
+    out = customers.merge(stats, on='Change_Order', how='left')
+
+    # Neat ordering
+    return out.sort_values(['records', 'Change_Order'], ascending=[False, True]).reset_index(drop=True)
+
+import numpy as np
+import pandas as pd
+import streamlit as st
+
+def normalize_pm_col(df: pd.DataFrame) -> pd.Series:
+    """Trim whitespace and convert empty/placeholder strings to NaN."""
+    return (
+        df['PM']
+        .astype(str)
+        .str.strip()
+        .replace({'': np.nan, 'nan': np.nan, 'NaN': np.nan, 'None': np.nan})
+    )
+
+def ecos_for_pm(df: pd.DataFrame, pm: str) -> pd.DataFrame:
+    """
+    List distinct ECOs where this PM appears anywhere.
+    Returns quick stats + optional customer summary.
+    """
+    df = df.copy()
+    df['PM_clean'] = normalize_pm_col(df)
+
+    mask = df['PM_clean'] == pm
+    ecos = df.loc[mask, 'Change_Order'].dropna().unique().tolist()
+    if not ecos:
+        return pd.DataFrame(columns=['Change_Order', 'records', 'parts', 'tlas', 'Customers'])
+
+    sub = df[df['Change_Order'].isin(ecos)]
+
+    # Stats
+    stats = (
+        sub.groupby('Change_Order')
+           .agg(
+               records=('Change_Order', 'size'),
+               parts=('Item_Type', lambda x: (x == 'Part').sum() if 'Item_Type' in sub.columns else np.nan),
+               tlas=('Item_Type', lambda x: (x == 'TLA').sum() if 'Item_Type' in sub.columns else np.nan),
+           )
+           .reset_index()
+    )
+
+    # Customers summary (if present)
+    if 'Customer' in sub.columns:
+        customers = (
+            sub.groupby('Change_Order')['Customer']
+               .apply(lambda s: sorted({c for c in s.dropna().astype(str).str.strip() if c}) or ['[None]'])
+               .reset_index(name='Customers')
+        )
+        out = stats.merge(customers, on='Change_Order', how='left')
+    else:
+        out = stats.assign(Customers='[Column missing]')
+
+    return out.sort_values(['records', 'Change_Order'], ascending=[False, True]).reset_index(drop=True)
+
+def eco_detail(df: pd.DataFrame, eco: str) -> pd.DataFrame:
+    """Return full-row details for a single ECO, sorted for readability."""
+    sub = df[df['Change_Order'] == eco].copy()
+    if 'PM' in sub.columns:
+        sub['PM'] = sub['PM'].astype(str).str.strip()
+    if 'Customer' in sub.columns:
+        sub['Customer'] = sub['Customer'].astype(str).str.strip()
+    # Nice sort: Item_Type -> Item -> whatever else exists
+    sort_cols = [c for c in ['Item_Type', 'Item', 'Customer', 'PM'] if c in sub.columns]
+    return sub.sort_values(sort_cols) if sort_cols else sub
+
+
 # ───────────────── MAIN APPLICATION ───────────────────────────────
 
 def main():
@@ -836,7 +970,7 @@ def main():
         st.markdown('<div class="section-header">📁 Upload Data</div>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
             "Choose Excel file",
-            type=['xlsx', 'xls'],
+            type=['xlsx', 'xls', 'xlsm'],
             help="Upload ECO data file",
             label_visibility="collapsed"
         )
@@ -856,7 +990,107 @@ def main():
                 df = load_excel_data(uploaded_file, selected_sheet)
                 
                 if df is not None:
-                    pass
+                    with st.expander("🧭 ECOs with no PM (global)", expanded=False):
+                        missing_pm_df = ecos_missing_pm(df)
+                        st.write(f"**{len(missing_pm_df)}** ECO(s) with no PM found.")
+                        st.dataframe(missing_pm_df, use_container_width=True, height=260)
+
+                        csv = missing_pm_df.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            "⬇️ Download CSV",
+                            csv,
+                            file_name="ecos_without_pm.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+
+                if df is not None:
+                    with st.expander("👤 PM Workspace — My ECOs", expanded=False):
+                        # --- Query params for deep linking ---
+                        q = st.query_params
+                        qp_pm  = q.get("pm", [None])
+                        qp_eco = q.get("eco", [None])
+                        qp_pm  = qp_pm[0] if isinstance(qp_pm, list) else qp_pm
+                        qp_eco = qp_eco[0] if isinstance(qp_eco, list) else qp_eco
+
+                        # --- PM selection ---
+                        pm_options = sorted(
+                            normalize_pm_col(df).dropna().unique().tolist()
+                        )
+                        default_index = 0
+                        if qp_pm and qp_pm in pm_options:
+                            default_index = ["Select a PM"] + pm_options.index(qp_pm) * [None]  # dummy line to compute
+                            default_index = (pm_options.index(qp_pm) + 1)  # because we add "Select a PM" below
+
+                        pm_choice = st.selectbox("Choose your name", ["Select a PM"] + pm_options, index=(default_index if isinstance(default_index, int) else 0))
+                        selected_pm = None if pm_choice == "Select a PM" else pm_choice
+
+                        if selected_pm:
+                            # --- ECO list for this PM ---
+                            pm_ecos_df = ecos_for_pm(df, selected_pm)
+                            st.caption(f"Found **{len(pm_ecos_df)}** ECO(s) for **{selected_pm}**.")
+                            st.dataframe(pm_ecos_df, use_container_width=True, height=260)
+
+                            # Optional CSV export
+                            st.download_button(
+                                "⬇️ Download my ECOs (CSV)",
+                                pm_ecos_df.to_csv(index=False).encode('utf-8'),
+                                file_name=f"{selected_pm}_ecos.csv",
+                                mime="text/csv",
+                                use_container_width=True
+                            )
+
+                            # --- Clickable ECO list & details ---
+                            st.markdown("#### Open an ECO")
+                            left, right = st.columns([1, 2], gap="large")
+
+                            with left:
+                                # Let PM click an ECO from a selectbox (scales better than many buttons)
+                                eco_list = pm_ecos_df['Change_Order'].tolist()
+                                # Respect deep link if provided
+                                default_eco_idx = 0
+                                if qp_eco and qp_eco in eco_list:
+                                    default_eco_idx = eco_list.index(qp_eco)
+
+                                eco_choice = st.selectbox("Select an ECO", eco_list, index=default_eco_idx if eco_list else 0, key="pm_workspace_eco")
+
+                                # Update query params so the page URL can be shared/bookmarked
+                                if eco_choice:
+                                    st.query_params.update({"pm": selected_pm, "eco": eco_choice})
+
+                            with right:
+                                if eco_choice:
+                                    details = eco_detail(df, eco_choice)
+                                    st.write(f"**Details for** `{eco_choice}`")
+                                    st.dataframe(details, use_container_width=True, height=360)
+
+                                    # Quick exports for the selected ECO
+                                    col_a, col_b = st.columns(2)
+                                    with col_a:
+                                        st.download_button(
+                                            "⬇️ Download ECO rows (CSV)",
+                                            details.to_csv(index=False).encode('utf-8'),
+                                            file_name=f"{eco_choice}_rows.csv",
+                                            mime="text/csv",
+                                            use_container_width=True
+                                        )
+                                    with col_b:
+                                        # A compact summary of the selected ECO
+                                        summary_cols = [c for c in ['Change_Order','Item','Item_Type','Customer','PM'] if c in details.columns]
+                                        summary = details[summary_cols] if summary_cols else details
+                                        st.download_button(
+                                            "⬇️ Download summary (CSV)",
+                                            summary.to_csv(index=False).encode('utf-8'),
+                                            file_name=f"{eco_choice}_summary.csv",
+                                            mime="text/csv",
+                                            use_container_width=True
+                                        )
+                        else:
+                            st.info("Select your name to see your ECOs.")
+
+
+
+
                     
                                         
             except Exception as e:
